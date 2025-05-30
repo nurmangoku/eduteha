@@ -8,21 +8,23 @@ export default function Profile() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null)
   const [newPassword, setNewPassword] = useState('')
+  const [profile, setProfile] = useState<any>(null)
 
   useEffect(() => {
     const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data: profile } = await supabase
+      const { data: profileData } = await supabase
         .from('profiles')
-        .select('full_name, avatar_url')
+        .select('full_name, avatar_url, xp, badges')
         .eq('id', user.id)
         .single()
 
-      if (profile) {
-        setFullName(profile.full_name)
-        setAvatarUrl(profile.avatar_url)
+      if (profileData) {
+        setFullName(profileData.full_name)
+        setAvatarUrl(profileData.avatar_url)
+        setProfile(profileData) // simpan seluruh data profil
       }
 
       setLoading(false)
@@ -70,6 +72,20 @@ export default function Profile() {
 
   return (
     <div className="p-4 border rounded-xl shadow bg-white max-w-md">
+      <div className="mt-6 bg-white p-4 rounded shadow">
+  <h2 className="text-xl font-bold mb-2">🎖 Gamifikasi</h2>
+  <p>XP: {profile?.xp}</p>
+  <div className="mt-2">
+    <h3 className="font-semibold mb-1">Lencana:</h3>
+    <ul className="list-disc list-inside">
+      {profile?.badges?.map((badge: string, i: number) => (
+        <li key={i}>{badge}</li>
+      ))}
+      {profile?.badges?.length === 0 && <li>Belum ada</li>}
+    </ul>
+  </div>
+</div>
+
       <h2 className="text-xl font-bold mb-4">Profil Pengguna</h2>
       {avatarUrl && (
         <img src={avatarUrl} alt="avatar" className="w-24 h-24 rounded-full mb-4" />

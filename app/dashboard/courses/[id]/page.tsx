@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { updateProgress } from '@/lib/updateProgress'
 
 export default function CourseDetail() {
   const { id } = useParams()
@@ -59,6 +60,7 @@ export default function CourseDetail() {
 
     if (!error) {
       setCompletedSteps(newCompleted)
+      await updateProgress(userId, id as string, newCompleted)
     }
   }
 
