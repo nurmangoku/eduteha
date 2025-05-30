@@ -16,6 +16,8 @@ export default function GalleryPage() {
         .order('created_at', { ascending: false })
 
       setPhotos(galleryData || [])
+      console.log("Data dari tabel gallery:", galleryData)
+
 
       // Ambil semua komentar
       const { data: commentData } = await supabase
@@ -29,7 +31,7 @@ export default function GalleryPage() {
         if (!grouped[pid]) grouped[pid] = []
         grouped[pid].push(comment)
       }
-
+      
       setComments(grouped)
     }
 
@@ -54,9 +56,11 @@ export default function GalleryPage() {
   return (
     <div className="p-6 space-y-6">
         <Upload />
+        
       <h2 className="text-2xl font-bold mb-4">Galeri Kegiatan</h2>
       {photos.map(photo => (
         <div key={photo.id} className="p-4 bg-white rounded-xl shadow space-y-2">
+          
           <img src={photo.image_url} alt="Kegiatan" className="w-full rounded" />
           <p><strong>{photo.profiles?.full_name}</strong>: {photo.caption}</p>
 

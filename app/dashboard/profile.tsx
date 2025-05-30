@@ -58,6 +58,7 @@ export default function Profile() {
         .getPublicUrl(`public/${user.id}`)
 
       updatedAvatarUrl = urlData.publicUrl
+      console.log('URL Avatar:', updatedAvatarUrl)
     }
 
     await supabase.from('profiles').update({
@@ -88,7 +89,10 @@ export default function Profile() {
 
       <h2 className="text-xl font-bold mb-4">Profil Pengguna</h2>
       {avatarUrl && (
+        <>
+        {console.log("Render Avatar URL:", avatarUrl)}
         <img src={avatarUrl} alt="avatar" className="w-24 h-24 rounded-full mb-4" />
+        </>
       )}
       <input
         type="text"

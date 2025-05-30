@@ -9,32 +9,51 @@ export default function UploadPhoto() {
   const router = useRouter()
 
   const handleUpload = async () => {
-    if (!file) return alert('Pilih file foto dulu')
+  if (!file) return alert('Pilih file foto dulu')
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return alert('Tidak login')
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return alert('Tidak login')
 
-    const filename = `${user.id}-${Date.now()}`
+  const filename = `${user.id}-${Date.now()}`
 
-    const { error: uploadError } = await supabase.storage
-      .from('gallery')
-      .upload(`public/${filename}`, file)
+  // Upload ke storage
+  const { error: uploadError } = await supabase.storage
+    .from('gallery')
+    .upload(`public/${filename}`, file)
 
-    if (uploadError) return alert('Gagal upload foto')
+  if (uploadError) {
+    console.error('Upload error:', uploadError)
+    return alert('Gagal upload foto')
+  }
 
-    const { data: { publicUrl } } = supabase
-      .storage
-      .from('gallery')
-      .getPublicUrl(`public/${filename}`)
+  // Ambil public URL
+  const { data: urlData } = supabase
+    .storage
+    .from('gallery')
+    .getPublicUrl(`public/${filename}`)
 
-    await supabase.from('gallery').insert({
+  const publicUrl = urlData.publicUrl
+  console.log('Public URL:', publicUrl)
+
+  // Simpan ke tabel gallery
+  const { error: insertError, data: insertData } = await supabase
+    .from('gallery')
+    .insert({
       user_id: user.id,
       caption,
-      image_url: publicUrl
+      image_url: publicUrl,
     })
 
-    router.push('/dashboard/gallery')
+  console.log('Insert gallery:', insertData, insertError)
+
+  if (insertError) {
+    return alert('Gagal simpan data galeri')
   }
+
+  // Kembali ke halaman galeri
+  router.push('/dashboard/gallery')
+}
+
 
   return (
     <div className="text-black max-w-md mx-auto p-6 bg-white rounded-xl shadow">
