@@ -41,7 +41,7 @@ export default function Profile() {
 
     // Upload avatar jika ada file baru
     if (newAvatarFile) {
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('avatars')
         .upload(`public/${user.id}`, newAvatarFile, {
           upsert: true,
