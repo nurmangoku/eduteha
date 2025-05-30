@@ -39,7 +39,7 @@ export default function CreateCoursePage() {
   }
 
   return (
-    <RoleGuard allowedRoles={['teacher']}>
+    <RoleGuard allowedRoles={['guru']}>
     <div className="text-black max-w-xl mx-auto p-6 bg-white rounded-xl shadow">
       <h2 className="text-2xl font-bold mb-4">Buat Kursus</h2>
       <input className="input mb-2 w-full" placeholder="Judul Kursus"

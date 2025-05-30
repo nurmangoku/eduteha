@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import RoleGuard from '@/components/RoleGuard'
 
 
 export default function CourseList() {
@@ -20,6 +21,7 @@ export default function CourseList() {
   }, [kelasFilter])
 
   return (
+    <RoleGuard allowedRoles={['murid']}>
     <div className="p-6">
       <input
         className="input mb-4"
@@ -37,5 +39,6 @@ export default function CourseList() {
         ))}
       </ul>
     </div>
+    </RoleGuard>
   )
 }

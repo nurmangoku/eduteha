@@ -37,6 +37,7 @@ export default function Sidebar() {
       <nav className="space-y-3">
         <Link href="/dashboard" className="block">Profil</Link>
         <Link href="/dashboard/courses" className="block">Kursus</Link>
+        <Link href="/dashboard/create-course" className="block">Buat Kursus</Link>
         <Link href="/dashboard/gallery" className="block">Galeri</Link>
 
         {role === 'teacher' && (

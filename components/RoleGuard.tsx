@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 type RoleGuardProps = {
-  allowedRoles: ('teacher' | 'student')[]
+  allowedRoles: ('guru' | 'murid')[]
   children: React.ReactNode
 }
 
