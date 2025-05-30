@@ -1,0 +1,122 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+
+export default function Profile() {
+  const [loading, setLoading] = useState(true)
+  const [fullName, setFullName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', user.id)
+        .single()
+
+      if (profile) {
+        setFullName(profile.full_name)
+        setAvatarUrl(profile.avatar_url)
+      }
+
+      setLoading(false)
+    }
+
+    fetchProfile()
+  }, [])
+
+  const handleUpdate = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    let updatedAvatarUrl = avatarUrl
+
+    // Upload avatar jika ada file baru
+    if (newAvatarFile) {
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(`public/${user.id}`, newAvatarFile, {
+          upsert: true,
+        })
+
+      if (error) {
+        alert('Gagal upload avatar')
+        return
+      }
+
+      const { data: urlData } = supabase
+        .storage
+        .from('avatars')
+        .getPublicUrl(`public/${user.id}`)
+
+      updatedAvatarUrl = urlData.publicUrl
+    }
+
+    await supabase.from('profiles').update({
+      full_name: fullName,
+      avatar_url: updatedAvatarUrl,
+    }).eq('id', user.id)
+
+    alert('Profil berhasil diperbarui')
+  }
+
+  if (loading) return <p>Memuat profil...</p>
+
+  return (
+    <div className="p-4 border rounded-xl shadow bg-white max-w-md">
+      <h2 className="text-xl font-bold mb-4">Profil Pengguna</h2>
+      {avatarUrl && (
+        <img src={avatarUrl} alt="avatar" className="w-24 h-24 rounded-full mb-4" />
+      )}
+      <input
+        type="text"
+        className="input mb-2 w-full"
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
+        placeholder="Nama Lengkap"
+      />
+      <input
+        type="file"
+        className="input mb-4 w-full"
+        accept="image/*"
+        onChange={(e) => setNewAvatarFile(e.target.files?.[0] || null)}
+      />
+      <button onClick={handleUpdate} className="btn w-full">Simpan Perubahan</button>
+      <input
+        type="password"
+        placeholder="Kata sandi baru"
+        className="input mb-2 w-full"
+        onChange={(e) => setNewPassword(e.target.value)}
+    />
+    <button
+        className="btn w-full mb-4"
+        onClick={async () => {
+            const { error } = await supabase.auth.updateUser({
+            password: newPassword,
+            })
+            if (error) alert('Gagal ubah kata sandi')
+            else alert('Kata sandi berhasil diubah')
+        }}
+        >
+        Ubah Kata Sandi
+    </button>
+    <button
+        className="btn bg-red-500 w-full"
+        onClick={async () => {
+            await supabase.auth.signOut()
+            window.location.href = '/login'
+        }}
+    >
+        Logout
+    </button>
+
+
+    </div>
+  )
+}
