@@ -67,7 +67,7 @@ export default function Navbar() {
   ]
 
   return (
-    <nav className="fixed z-50 bottom-0 md:top-0 md:bottom-auto left-0 right-0 bg-white border-t md:border-b border-gray-200 shadow flex justify-around md:justify-center md:space-x-6 py-2 px-4 md:px-8">
+    <nav className="navbar bottom-0 md:top-0 md:bottom-auto">
       {navItems.map(
         (item) =>
           item.show && (
@@ -85,6 +85,16 @@ export default function Navbar() {
             </Link>
           )
       )}
+
+      {
+        role === 'guru' && (
+          <Link href="/dashboard/manage-courses" className="text-sm font-medium flex flex-col items-center">
+            <BookOpen size={20} />
+            <span className="text-xs mt-1 hidden md:inline">Kelola Kursus</span>
+          </Link>
+        )
+      }
+
 
       {/* Tombol logout */}
       <button
