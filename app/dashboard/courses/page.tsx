@@ -1,75 +1,68 @@
 'use client'
+
 import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import RoleGuard from '@/components/RoleGuard'
+import Link from 'next/link'
 
+interface Step {
+  id: string
+  title: string
+  step_number: number
+}
 
-export default function CourseList() {
-  const [courses, setCourses] = useState<any[]>([])
-  const [kelasFilter, setKelasFilter] = useState('')
-  const [kelas, setKelas] = useState('')
+export default function CourseDetailPage() {
+  const router = useRouter()
+  const { id: courseId } = useParams()
+
+  const [steps, setSteps] = useState<Step[]>([])
+  const [completedSteps, setCompletedSteps] = useState<number[]>([])
+  const [userId, setUserId] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
-
   useEffect(() => {
-  const fetchCourses = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const fetchData = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return router.push('/login')
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('kelas')
-      .eq('id', user.id)
-      .single()
+      setUserId(user.id)
 
-    if (!profile?.kelas) {
-      setKelas('')
-      setLoading(false)
-      return
-    }
+      const [{ data: stepData }, { data: progressData }] = await Promise.all([
+        supabase.from('course_steps').select('id, title, step_number').eq('course_id', courseId).order('step_number'),
+        supabase.from('course_progress').select('step_number').eq('course_id', courseId).eq('user_id', user.id)
+      ])
 
-    setKelas(profile.kelas)
-
-    const { data: courseData } = await supabase
-      .from('courses')
-      .select('*')
-      .eq('kelas', profile.kelas)
-
-      setCourses(courseData || [])
+      setSteps(stepData || [])
+      setCompletedSteps((progressData || []).map(p => p.step_number))
       setLoading(false)
     }
 
-    fetchCourses()
-  }, [])
+    fetchData()
+  }, [courseId, router])
 
-  if (loading) return <p className="p-6">🔄 Memuat data...</p>
-
-  if (!kelas) {
-    return (
-      <div className="p-6 text-red-600">
-        ⚠️ Anda belum memilih kelas.<br />
-        Silakan <a href="/dashboard" className="text-blue-600 underline">perbarui profil</a> terlebih dahulu.
-      </div>
-    )
-  }
+  if (loading) return <p className="p-6">Memuat...</p>
 
   return (
-    <RoleGuard allowedRoles={['murid']}>
-      <div className="p-6">
-        <h2 className="text-xl font-bold mb-4">Kursus untuk {kelas}</h2>
-        <ul className="space-y-4">
-          {courses.map(course => (
-            <li key={course.id} className="p-4 border rounded-xl shadow">
-              <h3 className="font-bold text-lg">{course.title}</h3>
-              <p>{course.description}</p>
-              <a href={`/dashboard/courses/${course.id}`} className="text-blue-600 underline">
-                Lihat Kursus
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </RoleGuard>
+    <div className="p-6 space-y-4 max-w-2xl mx-auto">
+      <h2 className="text-xl font-bold mb-4">Tahapan Kursus</h2>
+      <ul className="space-y-2">
+        {steps.map(step => (
+          <li key={step.id} className="card flex justify-between items-center">
+            <div>
+              <p className="font-medium">{step.step_number}. {step.title}</p>
+              <p className="text-sm text-gray-400">
+                {completedSteps.includes(step.step_number) ? '✅ Selesai' : '❌ Belum dikerjakan'}
+              </p>
+            </div>
+            <Link
+              href={`/dashboard/courses/${courseId}/stages/${step.step_number}`}
+              className="btn text-sm"
+            >
+              Buka
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
-
 }
