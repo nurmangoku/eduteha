@@ -122,6 +122,7 @@ export default function Profile() {
           <option key={k} value={`Kelas ${k}`}>Kelas {k}</option>
         ))}
       </select>
+
       <button onClick={handleUpdate} className="btn w-full">Simpan Perubahan</button>
       
 
