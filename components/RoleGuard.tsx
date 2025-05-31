@@ -1,10 +1,10 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react' // Tambahkan useMemo
 import { supabase } from '@/lib/supabase' // Pastikan path ini sesuai
 import { useRouter } from 'next/navigation'
 
 type RoleGuardProps = {
-  allowedRoles: ('guru' | 'murid')[]; // Menggunakan tipe peran yang konsisten ('guru', 'murid')
+  allowedRoles: ('guru' | 'murid')[]; 
   children: React.ReactNode;
 }
 
@@ -13,17 +13,18 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
+  // Memoize stringified version of allowedRoles to prevent unnecessary re-runs of useEffect
+  // Urutkan array sebelum stringify untuk memastikan urutan tidak mempengaruhi hasil string
+  const allowedRolesString = useMemo(() => JSON.stringify([...allowedRoles].sort()), [allowedRoles]);
+
   useEffect(() => {
     const checkRole = async () => {
-      setLoading(true); // Pastikan loading true di awal pengecekan
+      setLoading(true); 
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
       if (userError || !user) {
         console.error('RoleGuard: User not found or error fetching user', userError);
-        router.push('/login'); // Arahkan ke halaman login jika tidak ada user
-        // setLoading(false) akan dipanggil di finally block jika ada
-        // Namun, karena ada return, pastikan setLoading(false) dipanggil jika tidak ada finally
-        // Untuk kasus ini, kita bisa langsung set loading false dan return
+        router.push('/login'); 
         setLoading(false);
         return;
       }
@@ -36,27 +37,28 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
 
       if (profileError) {
         console.error('RoleGuard: Error fetching profile', profileError);
-        // Jika error mengambil profil, anggap tidak berhak dan arahkan
         router.push('/dashboard'); 
         setLoading(false);
         return;
       }
       
-      // Pastikan profile.role adalah salah satu dari 'guru' atau 'murid' sebelum includes
       const userRole = profile?.role as 'guru' | 'murid' | undefined;
 
-      if (userRole && allowedRoles.includes(userRole)) {
+      // Parse allowedRolesString kembali ke array untuk pengecekan
+      const currentAllowedRoles = JSON.parse(allowedRolesString) as ('guru' | 'murid')[];
+
+      if (userRole && currentAllowedRoles.includes(userRole)) {
         setAuthorized(true);
       } else {
-        console.log(`RoleGuard: Unauthorized. User role: ${userRole}, Allowed: ${allowedRoles.join(', ')}`);
-        setAuthorized(false); // Eksplisit set false
-        router.push('/dashboard'); // Arahkan ke dashboard jika tidak berhak
+        console.log(`RoleGuard: Unauthorized. User role: "${userRole}", Allowed: "${currentAllowedRoles.join(', ')}"`);
+        setAuthorized(false); 
+        router.push('/dashboard'); 
       }
       setLoading(false);
     }
 
     checkRole();
-  }, [allowedRoles, router]); // Dependencies
+  }, [allowedRolesString, router]); // Gunakan allowedRolesString sebagai dependency
 
   if (loading) {
     return <p className="p-6 text-center text-gray-600 dark:text-gray-400">🔒 Memeriksa akses Anda...</p>;

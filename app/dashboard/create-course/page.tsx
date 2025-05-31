@@ -1,8 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase' // Pastikan path ini sesuai
 import { useRouter } from 'next/navigation'
-import RoleGuard from '@/components/RoleGuard'
+import RoleGuard from '@/components/RoleGuard' // Pastikan path ini sesuai
 
 interface StepData {
   content: string;
@@ -10,7 +10,7 @@ interface StepData {
   optionA: string;
   optionB: string;
   optionC: string;
-  correctAnswer: 'A' | 'B' | 'C' | ''; // A, B, C, atau kosong
+  correctAnswer: 'A' | 'B' | 'C' | '';
 }
 
 const initialStep: StepData = {
@@ -27,26 +27,29 @@ export default function CreateCoursePage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [kelas, setKelas] = useState('')
-  // Inisialisasi 5 tahap, masing-masing dengan struktur StepData
   const [steps, setSteps] = useState<StepData[]>(() => Array(5).fill(null).map(() => ({ ...initialStep })));
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const handleStepChange = (index: number, field: keyof StepData, value: string) => {
-    const newSteps = [...steps];
-    // Pastikan correctAnswer adalah salah satu dari 'A', 'B', 'C', atau ''
-    if (field === 'correctAnswer') {
-        const validAnswers = ['A', 'B', 'C', ''];
-        if (validAnswers.includes(value.toUpperCase())) {
-            newSteps[index][field] = value.toUpperCase() as 'A' | 'B' | 'C' | '';
-        } else {
-            newSteps[index][field] = ''; // Default ke kosong jika tidak valid
+    setSteps(prevSteps => 
+      prevSteps.map((step, i) => {
+        if (i === index) {
+          const updatedStep = { ...step };
+          if (field === 'correctAnswer') {
+            const validAnswers = ['A', 'B', 'C', ''];
+            updatedStep[field] = validAnswers.includes(value.toUpperCase()) 
+              ? (value.toUpperCase() as 'A' | 'B' | 'C' | '') 
+              : '';
+          } else {
+            updatedStep[field] = value;
+          }
+          return updatedStep;
         }
-    } else {
-        newSteps[index][field] = value;
-    }
-    setSteps(newSteps);
+        return step;
+      })
+    );
   };
 
   const handleSubmit = async () => {
@@ -58,8 +61,6 @@ export default function CreateCoursePage() {
       return
     }
 
-    // Validasi konten dan MCQ untuk tahap 1-4 (wajib)
-    // Tahap 5 (video) kontennya opsional, MCQ juga opsional jika ada konten
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       if (i < 4) { // Tahap 1-4
@@ -71,41 +72,25 @@ export default function CreateCoursePage() {
           setError(`Soal Pilihan Ganda (pertanyaan, semua pilihan, dan jawaban benar) untuk Tahapan ${i + 1} tidak boleh kosong.`);
           return;
         }
-      } else { // Tahap 5 (Link YouTube)
-        if (step.content.trim()) { // Jika link YouTube diisi
+      } else { // Tahap 5 (Link YouTube Opsional, Tanpa Soal)
+        if (step.content.trim()) {
           try {
-            new URL(step.content); // Validasi URL
+            new URL(step.content); 
           } catch (_) {
-            setError(`Tahapan 5 harus berisi link YouTube yang valid atau dikosongkan.`);
+            setError(`Tahapan 5: Link YouTube tidak valid. Kosongkan jika tidak ada.`);
             return;
           }
-          // Jika ada link YouTube, MCQ untuk tahap 5 menjadi opsional.
-          // Jika MCQ diisi, harus lengkap.
-          if (step.question.trim() || step.optionA.trim() || step.optionB.trim() || step.optionC.trim() || step.correctAnswer) {
-            if (!step.question.trim() || !step.optionA.trim() || !step.optionB.trim() || !step.optionC.trim() || !step.correctAnswer) {
-              setError(`Jika Soal Pilihan Ganda untuk Tahapan 5 diisi, maka pertanyaan, semua pilihan, dan jawaban benar tidak boleh kosong.`);
-              return;
-            }
-          }
-        } else {
-            // Jika link YouTube kosong, pastikan MCQ juga kosong
-            if (step.question.trim() || step.optionA.trim() || step.optionB.trim() || step.optionC.trim() || step.correctAnswer) {
-                 setError(`Jika link YouTube untuk Tahapan 5 kosong, maka Soal Pilihan Ganda juga harus dikosongkan.`);
-                 return;
-            }
         }
       }
     }
 
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setError('Tidak terautentikasi. Silakan login kembali.')
-      setLoading(false)
-      return
-    }
-
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('Tidak terautentikasi. Silakan login kembali.');
+      }
+
       const { data: course, error: courseError } = await supabase.from('courses').insert({
         title,
         description,
@@ -119,33 +104,45 @@ export default function CreateCoursePage() {
       const stepPromises = steps.map((stepData, i) => {
         const contentToSave = stepData.content.trim();
         const isVideoStep = i === 4 && contentToSave !== '';
-        
-        // Hanya simpan MCQ jika pertanyaan diisi (untuk tahap 5 yang opsional MCQ nya)
-        // Untuk tahap 1-4, validasi di atas sudah memastikan semua field MCQ terisi.
-        const shouldSaveMcq = (i < 4) || (i === 4 && stepData.question.trim() !== '');
 
-        return supabase.from('course_steps').insert({
-          course_id: course.id,
-          step_number: i + 1,
-          content: contentToSave,
-          is_video: isVideoStep,
-          question: shouldSaveMcq ? stepData.question.trim() : null,
-          option_a: shouldSaveMcq ? stepData.optionA.trim() : null,
-          option_b: shouldSaveMcq ? stepData.optionB.trim() : null,
-          option_c: shouldSaveMcq ? stepData.optionC.trim() : null,
-          correct_answer: shouldSaveMcq ? stepData.correctAnswer : null,
-        });
-      });
-      
-      const stepResults = await Promise.all(stepPromises);
-      stepResults.forEach(result => {
-        if (result.error) {
-            console.error('Gagal menyimpan salah satu langkah kursus:', result.error);
-            throw new Error(`Gagal menyimpan Tahapan: ${result.error.message}`);
+        if (i === 4) { 
+          return supabase.from('course_steps').insert({
+            course_id: course.id,
+            step_number: i + 1,
+            content: contentToSave,
+            is_video: isVideoStep,
+            question: null,
+            option_a: null,
+            option_b: null,
+            option_c: null,
+            correct_answer: null,
+          });
+        } else { 
+          return supabase.from('course_steps').insert({
+            course_id: course.id,
+            step_number: i + 1,
+            content: contentToSave,
+            is_video: isVideoStep,
+            question: stepData.question.trim(),
+            option_a: stepData.optionA.trim(),
+            option_b: stepData.optionB.trim(),
+            option_c: stepData.optionC.trim(),
+            correct_answer: stepData.correctAnswer,
+          });
         }
       });
       
-      setSuccessMessage('Kursus berhasil dibuat! Mengarahkan ke dashboard...');
+      const stepResults = await Promise.all(stepPromises);
+      for (const result of stepResults) {
+        if (result.error) {
+          console.error('Gagal menyimpan salah satu langkah kursus:', result.error);
+          // Pertimbangkan untuk menghapus kursus yang sudah dibuat jika salah satu langkah gagal
+          // await supabase.from('courses').delete().match({ id: course.id });
+          throw new Error(`Gagal menyimpan Tahapan: ${result.error.message}`);
+        }
+      }
+      
+      setSuccessMessage('Kursus berhasil dibuat! Mengarahkan...');
       setTitle('');
       setDescription('');
       setKelas('');
@@ -156,10 +153,10 @@ export default function CreateCoursePage() {
       }, 2000);
 
     } catch (e: any) {
-      console.error('Error saat membuat kursus:', e)
-      setError(e.message || 'Terjadi kesalahan saat membuat kursus.')
+      console.error('Error saat membuat kursus:', e);
+      setError(e.message || 'Terjadi kesalahan saat membuat kursus.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -168,8 +165,8 @@ export default function CreateCoursePage() {
       <div className="text-black max-w-xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-700 dark:text-white">Buat Kursus Baru</h2>
         
-        {error && <p className="mb-4 p-3 text-sm text-red-700 bg-red-100 rounded-md">{error}</p>}
-        {successMessage && <p className="mb-4 p-3 text-sm text-green-700 bg-green-100 rounded-md">{successMessage}</p>}
+        {error && <p className="mb-4 p-3 text-sm text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-200 rounded-md">{error}</p>}
+        {successMessage && <p className="mb-4 p-3 text-sm text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-200 rounded-md">{successMessage}</p>}
 
         <div className="space-y-4">
           <div>
@@ -213,20 +210,21 @@ export default function CreateCoursePage() {
 
           <h3 className="text-xl font-semibold pt-4 border-t mt-6 text-gray-700 dark:text-gray-300">Materi & Soal per Tahapan</h3>
           {steps.map((stepData, i) => (
-            <div key={i} className="p-4 border rounded-lg space-y-3 bg-gray-50 dark:bg-gray-700/50">
+            // Menggunakan `key={'step-' + i}` untuk memastikan key unik dan stabil
+            <div key={`step-${i}`} className="p-4 border rounded-lg space-y-3 bg-gray-50 dark:bg-gray-700/50">
               <h4 className="text-lg font-medium text-gray-700 dark:text-gray-200">
                 Tahapan {i + 1} 
                 {i < 4 && <span className="text-red-500 text-xs ml-1">(Konten & Soal Wajib)</span>}
-                {i === 4 && <span className="text-xs ml-1 text-gray-500 dark:text-gray-400">(Link Video YouTube - Opsional, Soal Opsional jika ada video)</span>}
+                {i === 4 && <span className="text-xs ml-1 text-gray-500 dark:text-gray-400">(Link Video YouTube - Opsional, Tanpa Soal)</span>}
               </h4>
               <div>
                 <label htmlFor={`step-content-${i}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Konten Tahapan {i + 1} {i === 4 ? '(Link Video YouTube)' : ''}
+                  Konten Tahapan {i + 1} {i === 4 ? '(Link Video YouTube, bisa dikosongkan)' : ''}
                 </label>
                 <textarea 
                   id={`step-content-${i}`}
                   className="input w-full dark:bg-gray-600 dark:text-white dark:border-gray-500"
-                  placeholder={i === 4 ? 'Contoh: https://www.youtube.com/watch?v=xxxx (Kosongkan jika tidak ada video)' : `Isi materi untuk tahapan ${i + 1}...`}
+                  placeholder={i === 4 ? 'Contoh: https://www.youtube.com/watch?v=... (Kosongkan jika tidak ada)' : `Isi materi untuk tahapan ${i + 1}...`}
                   value={stepData.content} 
                   onChange={(e) => handleStepChange(i, 'content', e.target.value)} 
                   rows={i === 4 ? 2 : 4}
@@ -234,12 +232,11 @@ export default function CreateCoursePage() {
                 />
               </div>
 
-              { (i < 4 || (i === 4 && steps[i].content.trim() !== '')) && ( // Tampilkan MCQ jika tahap 1-4, atau tahap 5 jika ada konten (link video)
+              { i < 4 && (
                 <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-600 space-y-2">
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Soal Pilihan Ganda untuk Tahapan {i + 1} 
-                    {i < 4 && <span className="text-red-500 text-xs ml-1">(Wajib Diisi Lengkap)</span>}
-                    {i === 4 && <span className="text-xs ml-1 text-gray-500 dark:text-gray-400">(Opsional, isi lengkap jika ada soal)</span>}
+                    <span className="text-red-500 text-xs ml-1">(Wajib Diisi Lengkap)</span>
                   </p>
                   <div>
                     <label htmlFor={`step-question-${i}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Pertanyaan</label>
