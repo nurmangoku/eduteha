@@ -58,32 +58,51 @@ export default function GalleryPage() {
         <Upload />
         
       <h2 className="text-2xl font-bold mb-4">Galeri Kegiatan</h2>
-      {photos.map(photo => (
-        <div key={photo.id} className="p-4 bg-white rounded-xl shadow space-y-2">
-          
-          <img src={photo.image_url} alt="Kegiatan" className="w-full rounded" />
-          <p><strong>{photo.profiles?.full_name}</strong>: {photo.caption}</p>
-
-          <div className="mt-2 space-y-1">
-            {(comments[photo.id] || []).map((c, i) => (
-              <p key={i} className="text-sm"><strong>{c.profiles?.full_name}:</strong> {c.comment}</p>
-            ))}
-          </div>
-
-          <div className="mt-2">
-            <input
-              className="input w-full"
-              placeholder="Tulis komentar..."
-              value={newComment[photo.id] || ''}
-              onChange={(e) => setNewComment({ ...newComment, [photo.id]: e.target.value })}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {photos.map(photo => (
+          <div
+            key={photo.id}
+            className="bg-white rounded-xl shadow-md p-4 flex flex-col space-y-2"
+          >
+            <img
+              src={photo.image_url}
+              alt="Kegiatan"
+              className="w-full h-48 object-cover rounded"
             />
-            <button
-              className="btn mt-2"
-              onClick={() => submitComment(photo.id)}
-            >Kirim</button>
+            <p className="text-sm text-gray-700">
+              <strong>{photo.user_id}</strong>: {photo.caption}
+            </p>
+
+            {/* Komentar */}
+            <div className="space-y-1 text-sm text-gray-600">
+              {(comments[photo.id] || []).map((c, i) => (
+                <p key={i}>
+                  <strong>{c.user_id}:</strong> {c.comment}
+                </p>
+              ))}
+            </div>
+
+            {/* Form Komentar */}
+            <div>
+              <input
+                className="input w-full text-sm mt-2"
+                placeholder="Tulis komentar..."
+                value={newComment[photo.id] || ''}
+                onChange={(e) =>
+                  setNewComment({ ...newComment, [photo.id]: e.target.value })
+                }
+              />
+              <button
+                className="btn mt-2 w-full text-sm bg-blue-600 text-white py-1 px-3 rounded hover:bg-blue-700"
+                onClick={() => submitComment(photo.id)}
+              >
+                Kirim
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+
     </div>
   )
 }
