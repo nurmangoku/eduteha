@@ -1,190 +1,145 @@
+// FILE: app/dashboard/gallery/page.tsx (Dengan Perbaikan Scope Fungsi)
+
 'use client'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase' // Pastikan path ini sesuai
-import Upload from './upload' // Pastikan path ini sesuai
+import { useEffect, useState, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
+import Upload from './upload'
+import Image from 'next/image'
+import { CommentModal } from './CommentModal'
 
-// Definisikan tipe untuk foto dan komentar
-interface Profile {
-  full_name: string;
-}
-
-interface Comment {
-  id: string;
-  photo_id: string;
-  user_id: string;
-  comment: string;
-  created_at: string;
-  profiles: Profile | null;
-}
-
+// Tipe data yang sesuai
+interface Profile { id: string; full_name: string; role: 'guru' | 'murid'; kelas: string; }
+interface Comment { id: string; comment: string; user_id: string; profiles: { full_name: string } | null; }
 interface Photo {
-  id: string;
-  image_url: string;
-  caption: string;
-  user_id: string;
-  profiles: Profile | null;
-  created_at: string;
+  id: string; image_url: string; caption: string; user_id: string; kelas: string;
+  uploader_full_name: string; comments_count: number; gallery_comments: Comment[];
 }
 
 export default function GalleryPage() {
   const [photos, setPhotos] = useState<Photo[]>([])
-  const [comments, setComments] = useState<Record<string, Comment[]>>({})
-  const [newComment, setNewComment] = useState<Record<string, string>>({})
+  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
 
-  const fetchGallery = async () => {
-    setLoading(true);
-    const { data: galleryData, error: galleryError } = await supabase
-      .from('gallery')
-      .select('*, profiles(full_name)')
-      .order('created_at', { ascending: false })
+  // --- PERBAIKAN DI SINI: Fungsi dipindahkan ke luar useEffect ---
+  // dan dibungkus dengan useCallback untuk stabilitas
+  const fetchGalleryData = useCallback(async () => {
+    // Jangan set loading di sini agar refresh realtime tidak menampilkan loading
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
 
-    if (galleryError) {
-      console.error("Error fetching gallery data:", galleryError);
-      setPhotos([]);
-    } else {
-      setPhotos(galleryData || [])
-    }
-
-    const { data: commentData, error: commentError } = await supabase
-      .from('gallery_comments')
-      .select('*, profiles(full_name)')
-      .order('created_at', { ascending: true })
-
-    if (commentError) {
-      console.error("Error fetching comments data:", commentError);
-    } else {
-      const groupedComments: Record<string, Comment[]> = {}
-      if (commentData) {
-        for (const comment of commentData) {
-          const photoId = comment.photo_id
-          if (!groupedComments[photoId]) {
-            groupedComments[photoId] = []
-          }
-          groupedComments[photoId].push(comment)
-        }
-      }
-      setComments(groupedComments)
-    }
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    fetchGallery()
-
-    const gallerySubscription = supabase
-      .channel('public:gallery')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, payload => {
-        fetchGallery()
-      })
-      .subscribe()
-
-    const commentsSubscription = supabase
-      .channel('public:gallery_comments')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery_comments' }, payload => {
-        fetchGallery()
-      })
-      .subscribe()
-    
-    return () => {
-      supabase.removeChannel(gallerySubscription);
-      supabase.removeChannel(commentsSubscription);
-    }
-  }, [])
-
-  const submitComment = async (photoId: string) => {
-    const text = newComment[photoId]
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!text || !user) {
-      alert(user ? "Komentar tidak boleh kosong." : "Anda harus login untuk berkomentar.");
+    const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    if (profileError || !profileData) {
+      console.error("Gagal mengambil profil:", profileError);
+      setLoading(false);
       return;
     }
+    setCurrentUser(profileData);
 
-    const { error } = await supabase.from('gallery_comments').insert({
-      photo_id: photoId,
-      user_id: user.id,
-      comment: text
-    })
+    const { data: photosData, error: rpcError } = await supabase.rpc('get_gallery_for_user', {
+      user_role: profileData.role,
+      user_kelas: profileData.kelas
+    });
 
-    if (error) {
-      console.error("Error submitting comment:", error);
-      alert("Gagal mengirim komentar.");
+    if (rpcError) {
+      console.error("Error fetching gallery via RPC:", rpcError);
+      setPhotos([]);
     } else {
-      setNewComment({ ...newComment, [photoId]: '' })
+      const photosWithEmptyComments = (photosData || []).map((p: any) => ({
+        ...p, gallery_comments: [],
+      }));
+      setPhotos(photosWithEmptyComments);
     }
-  }
+    setLoading(false);
+  }, []);
+  // -----------------------------------------------------------
 
-  if (loading) {
-    return <div className="p-6 text-center">Memuat galeri...</div>;
+  useEffect(() => {
+    fetchGalleryData(); // Panggil saat komponen pertama kali dimuat
+
+    const channel = supabase.channel('public:gallery-page-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, (payload) => {
+        console.log('Perubahan di galeri, memuat ulang...');
+        fetchGalleryData(); // Sekarang bisa dipanggil dari sini
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery_comments' }, (payload) => {
+        console.log('Perubahan di komentar, memuat ulang...');
+        fetchGalleryData(); // Dan dari sini
+      })
+      .subscribe();
+      
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchGalleryData]); // Tambahkan sebagai dependency
+
+  const handleOpenComments = async (photo: Photo) => {
+    const { data: commentsData } = await supabase.from('gallery_comments')
+      .select('*, profiles(full_name)').eq('photo_id', photo.id).order('created_at', { ascending: true });
+    const photoWithComments = { ...photo, gallery_comments: commentsData || [] };
+    setSelectedPhoto(photoWithComments);
   }
+  
+  const handleDeletePhoto = async (photoId: string, imageUrl: string) => {
+    if (confirm('Yakin ingin menghapus foto ini?')) {
+      setPhotos(currentPhotos => currentPhotos.filter(p => p.id !== photoId));
+      const { error } = await supabase.from('gallery').delete().eq('id', photoId);
+      if (error) { alert('Gagal hapus data.'); fetchGalleryData(); return; }
+      const filePath = imageUrl.split('/gallery/')[1];
+      if (filePath) await supabase.storage.from('gallery').remove([filePath]);
+    }
+  };
+  
+  const handleEditCaption = async (photoId: string) => {
+    const photo = photos.find(p => p.id === photoId);
+    const newCaption = prompt("Masukkan caption baru:", photo?.caption);
+    if (newCaption !== null && photo) {
+      setPhotos(photos.map(p => p.id === photoId ? { ...p, caption: newCaption } : p));
+      await supabase.from('gallery').update({ caption: newCaption }).eq('id', photoId);
+    }
+  };
+
+  if (loading) return <div className="p-6 text-center text-xl">🎨 Memuat Galeri...</div>;
+  if (!currentUser) return <div className="p-6 text-center text-xl">Login untuk melihat galeri.</div>;
 
   return (
-
-    <div className="py-6 px-2 sm:px-4 space-y-6"> 
-      <Upload onUploadSuccess={fetchGallery} />
+    <div className="py-6 px-4 space-y-8"> 
+      {/* Panggil komponen Upload dengan prop yang benar */}
+      <Upload onUploadSuccess={fetchGalleryData} />
       
-      <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Galeri Kegiatan</h2>
+      <h1 className="text-4xl font-bold text-center">
+        {currentUser.role === 'guru' ? 'Galeri Semua Kelas' : `Galeri Kelas ${currentUser.kelas}`}
+      </h1>
       {photos.length === 0 ? (
-        <p className="text-center text-gray-500 dark:text-gray-400">Belum ada foto di galeri.</p>
+        <div className="text-center card py-12"><p className="text-xl">Belum ada foto.</p></div>
       ) : (
-        <div className="flex flex-wrap gap-6"> {/* Menggunakan Flexbox untuk layout */}
-          {photos.map(photo => (
-            <div
-              key={photo.id}
-              className="w-full sm:w-[calc((100%-4.5rem)/4)] bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden flex flex-col"
-            >
-              <img
-                src={photo.image_url}
-                alt={photo.caption || "Kegiatan"}
-                className="w-full h-56 object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://placehold.co/600x400/cccccc/ffffff?text=Gambar+Rusak';
-                  (e.target as HTMLImageElement).alt = 'Gambar tidak dapat dimuat';
-                }}
-              />
-              <div className="p-4 flex flex-col flex-grow space-y-3">
-                <div className="flex-grow">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Diunggah oleh: <strong>{photo.profiles?.full_name || photo.user_id}</strong>
-                  </p>
-                  <p className="text-gray-800 dark:text-gray-200 mt-1">{photo.caption}</p>
-                </div>
-                
-                <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700 max-h-32 overflow-y-auto">
-                  {(comments[photo.id] || []).length > 0 ? (
-                    (comments[photo.id] || []).map((c) => (
-                      <div key={c.id} className="text-xs">
-                        <strong className="text-gray-700 dark:text-gray-300">{c.profiles?.full_name || c.user_id}:</strong>
-                        <span className="text-gray-600 dark:text-gray-400 ml-1">{c.comment}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Belum ada komentar.</p>
-                  )}
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {photos.map(photo => {
+            const canDelete = currentUser.id === photo.user_id || currentUser.role === 'guru';
+            const canEdit = currentUser.id === photo.user_id;
 
-                <div className="pt-2">
-                  <textarea
-                    className="input w-full text-sm resize-none dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                    placeholder="Tulis komentar..."
-                    rows={2}
-                    value={newComment[photo.id] || ''}
-                    onChange={(e) =>
-                      setNewComment({ ...newComment, [photo.id]: e.target.value })
-                    }
-                  />
-                  <button
-                    className="btn mt-2 w-full text-sm py-1.5"
-                    onClick={() => submitComment(photo.id)}
-                  >
-                    Kirim Komentar
+            return (
+              <div key={photo.id} className="card flex flex-col">
+                <div className="relative w-full h-64"><Image src={photo.image_url} alt={photo.caption || "Foto"} fill className="object-cover rounded-t-lg"/></div>
+                <div className="p-4 flex justify-between items-center border-b">
+                  <div>
+                    <p className="text-sm text-gray-500">Oleh: <strong>{photo.uploader_full_name || '...'}</strong> (Kelas {photo.kelas || 'N/A'})</p>
+                    <p className="font-semibold mt-1">{photo.caption}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {canEdit && <button onClick={() => handleEditCaption(photo.id)} title="Edit" className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">✏️</button>}
+                    {canDelete && <button onClick={() => handleDeletePhoto(photo.id, photo.image_url)} title="Hapus" className="p-2 rounded-full hover:bg-red-200 dark:hover:bg-red-800">🗑️</button>}
+                  </div>
+                </div>
+                <div className="p-4 mt-auto">
+                  <button onClick={() => handleOpenComments(photo)} className="text-sm font-semibold text-sky-600 hover:underline w-full text-left">
+                    Lihat {photo.comments_count} Komentar
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
+      {selectedPhoto && <CommentModal photo={selectedPhoto} currentUser={currentUser} onClose={() => setSelectedPhoto(null)}/>}
     </div>
   )
 }

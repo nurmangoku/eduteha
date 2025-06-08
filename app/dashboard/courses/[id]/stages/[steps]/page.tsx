@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+// Tipe data untuk step, sesuai dengan yang Anda berikan
 interface Step {
   id: string
   title: string
@@ -12,12 +13,23 @@ interface Step {
   option_a: string
   option_b: string
   option_c: string
-  correct_answer: string // ✅ ganti dari correct_option
+  correct_answer: string
 }
+
+// Komponen helper untuk menampilkan pesan di tengah layar
+const CenteredMessage = ({ children }: { children: React.ReactNode }) => (
+    <div className="flex items-center justify-center min-h-[60vh] text-center p-6">
+      <p className="text-xl text-gray-400 animate-pulse">{children}</p>
+    </div>
+);
 
 export default function StagePage() {
   const router = useRouter()
   const params = useParams()
+
+  // ==================================================================
+  // BAGIAN LOGIC (TIDAK ADA PERUBAHAN, SEMUA LOGIC ANDA DIPERTAHANKAN)
+  // ==================================================================
 
   const courseId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : ''
   const stepParam = typeof params.steps === 'string' ? params.steps : Array.isArray(params.steps) ? params.steps[0] : ''
@@ -46,7 +58,6 @@ export default function StagePage() {
     const load = async () => {
       setLoading(true)
 
-      // Ambil data tahap ini
       const { data: stepData, error: stepError } = await supabase
         .from('course_steps')
         .select('*')
@@ -61,7 +72,6 @@ export default function StagePage() {
 
       setStep(stepData)
 
-      // Cek progres siswa
       const { data: progress } = await supabase
         .from('course_progress')
         .select('*')
@@ -76,7 +86,6 @@ export default function StagePage() {
         setCorrect(progress.is_correct)
       }
 
-      // Cek apakah ada tahap berikutnya
       const { data: nextStep } = await supabase
         .from('course_steps')
         .select('id')
@@ -93,7 +102,6 @@ export default function StagePage() {
 
   const handleSubmit = async () => {
     if (!step || !selected || !userId) return
-
     if (!step.correct_answer) {
       alert('Kunci jawaban belum tersedia untuk tahap ini.')
       return
@@ -113,97 +121,120 @@ export default function StagePage() {
     setCorrect(isCorrect)
 
     if (isCorrect) {
-  // Ambil xp & badges sekarang
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('xp, badges')
-    .eq('id', userId)
-    .single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('xp, badges')
+        .eq('id', userId)
+        .single()
 
-  if (profile) {
-    const newXp = (profile.xp ?? 0) + 10
-    let badges = profile.badges ?? []
-
-    // Tambah badge sesuai xp
-    if (newXp >= 50 && !badges.includes('Pemula')) {
-      badges.push('Pemula')
+      if (profile) {
+        const newXp = (profile.xp ?? 0) + 10
+        let badges = profile.badges ?? []
+        if (newXp >= 50 && !badges.includes('Pemula')) badges.push('Pemula')
+        if (newXp >= 100 && !badges.includes('Pejuang Belajar')) badges.push('Pejuang Belajar')
+        
+        await supabase
+          .from('profiles')
+          .update({ xp: newXp, badges: badges })
+          .eq('id', userId)
+      }
     }
-
-    if (newXp >= 100 && !badges.includes('Pejuang Belajar')) {
-      badges.push('Pejuang Belajar')
-    }
-
-    // Simpan update ke Supabase
-    await supabase
-      .from('profiles')
-      .update({
-        xp: newXp,
-        badges: badges,
-      })
-      .eq('id', userId)
   }
-}
 
-  }
+  // ================================================================
+  // BAGIAN TAMPILAN (UI TELAH DITULIS ULANG DENGAN DESAIN BARU)
+  // ================================================================
 
   if (!stepParam || isNaN(stepNumber) || stepNumber < 1) {
-    return <p className="p-6 text-red-500">Nomor tahap tidak valid.</p>
+    return <CenteredMessage>Nomor tahap tidak valid.</CenteredMessage>
   }
 
-  if (loading) return <p className="p-6">🔄 Memuat tahap...</p>
-  if (!step) return <p className="p-6 text-red-500">Tahap tidak ditemukan.</p>
+  if (loading) {
+    return <CenteredMessage>🔄 Memuat tahap...</CenteredMessage>
+  }
+  
+  if (!step) {
+    return <CenteredMessage>Tahap tidak ditemukan.</CenteredMessage>
+  }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-4">
-      <h2 className="text-xl font-bold">Tahap {stepNumber}: {step.title}</h2>
-      <p>{step.content}</p>
-
-      <div className="mt-4 space-y-2">
-        <p className="font-medium">Soal: {step.question}</p>
-        {['A', 'B', 'C'].map(opt => (
-          <label key={opt} className="block">
-            <input
-              type="radio"
-              name="answer"
-              value={opt}
-              checked={selected === opt}
-              onChange={() => setSelected(opt)}
-              disabled={completed}
-            />
-            <span className="ml-2">{opt}. {step[`option_${opt.toLowerCase()}` as 'option_a' | 'option_b' | 'option_c']}</span>
-          </label>
-        ))}
+    <div className="max-w-3xl mx-auto my-10 p-6 md:p-8 bg-[--card] rounded-xl shadow-2xl shadow-black/20">
+      
+      {/* 1. Header Konten */}
+      <h2 className="text-3xl font-bold text-[--foreground]">Tahap {stepNumber}: {step.title}</h2>
+      <p className="text-base text-gray-400 mt-2 mb-8">{step.content}</p>
+      
+      {/* 2. Blok Pertanyaan */}
+      <div className="border-t border-[--border] pt-6">
+        <p className="text-lg font-semibold mb-4 text-[--foreground]">{step.question}</p>
+        
+        <div className="space-y-4">
+          {['A', 'B', 'C'].map((opt) => (
+            <label
+              key={opt}
+              className={`
+                flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200
+                ${selected === opt
+                  ? 'bg-blue-600/20 border-blue-500 ring-2 ring-blue-500'
+                  : 'border-[--border] hover:border-blue-500 hover:bg-white/5'
+                }
+                ${completed ? 'cursor-not-allowed opacity-70' : ''}
+              `}
+            >
+              <input
+                type="radio"
+                name="answer"
+                value={opt}
+                checked={selected === opt}
+                onChange={() => setSelected(opt)}
+                disabled={completed}
+                className="hidden"
+              />
+              <span className="font-bold text-lg mr-4">{opt}.</span>
+              <span className="text-base">{step[`option_${opt.toLowerCase()}` as 'option_a' | 'option_b' | 'option_c']}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
-      {!completed ? (
-        <button className="btn mt-4" onClick={handleSubmit} disabled={!selected}>
-          Kirim Jawaban
-        </button>
-      ) : (
-        <p className={`mt-4 font-medium ${correct ? 'text-green-600' : 'text-red-600'}`}>
-          {correct ? '✅ Jawaban Anda benar' : '❌ Jawaban Anda salah'}
-        </p>
-      )}
+      {/* 3. Blok Tombol Aksi dan Notifikasi */}
+      <div className="mt-8">
+        {!completed ? (
+          <button className="btn btn-primary w-full text-lg" onClick={handleSubmit} disabled={!selected}>
+            Kirim Jawaban
+          </button>
+        ) : (
+          <div className={`p-4 rounded-md flex items-center justify-center gap-3 font-medium border
+            ${correct 
+              ? 'bg-green-500/10 text-green-400 border-green-500/30' 
+              : 'bg-red-500/10 text-red-400 border-red-500/30'
+            }`}
+          >
+            <span>{correct ? '✅' : '❌'}</span>
+            <span>{correct ? 'Jawaban Anda benar!' : 'Jawaban Anda salah.'}</span>
+          </div>
+        )}
 
-      {completed && (
-        <div className="mt-6">
-          {hasNextStep ? (
-            <button
-              className="btn bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
-              onClick={() => router.push(`/dashboard/courses/${courseId}/stages/${stepNumber + 1}`)}
-            >
-              👉 Lanjut ke Tahap {stepNumber + 1}
-            </button>
-          ) : (
-            <button
-              className="btn bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-              onClick={() => router.push(`/dashboard/courses/${courseId}`)}
-            >
-              ✅ Kembali ke Kursus
-            </button>
-          )}
-        </div>
-      )}
+        {completed && (
+          <div className="mt-6 text-center">
+            {hasNextStep ? (
+              <button
+                className="btn btn-success"
+                onClick={() => router.push(`/dashboard/courses/${courseId}/stages/${stepNumber + 1}`)}
+              >
+                Lanjut ke Tahap Berikutnya 👉
+              </button>
+            ) : (
+              <button
+                className="btn btn-primary"
+                onClick={() => router.push(`/dashboard/courses/${courseId}`)}
+              >
+                🎉 Selesai! Kembali ke Daftar Kursus
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

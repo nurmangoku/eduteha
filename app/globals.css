@@ -1,12 +1,12 @@
+/* /app/globals.css (Dengan Tema Terang untuk Anak) */
+
+/* 1. Impor font kustom di paling atas */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+/* 2. Arahan utama Tailwind v4 */
 @import "tailwindcss";
 
-:root {
-  --background: #202123;  /* Warna gelap ala ChatGPT */
-  --foreground: #e5e5e5;  /* Teks terang untuk kontras */
-  --card: #2a2b2d;        /* Untuk box/kartu */
-  --border: #3a3b3c;
-}
-
+/* 3. Definisi @theme (jika masih digunakan) */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -14,36 +14,77 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: light) {
+/*
+  4. Variabel warna kustom (Tema Terang "Taman Bermain" sebagai default).
+*/
+:root {
+  --background: #F8FAFC;  /* Entitas dari bg-slate-50 */
+  --foreground: #1e293b;  /* Entitas dari text-slate-800 */
+  --card: #FFFFFF;
+  --border: #e2e8f0;      /* Entitas dari border-slate-200 */
+}
+
+/*
+  5. Opsi tema gelap jika pengguna mengaktifkannya di OS/Browser.
+  Ini tetap mempertahankan warna yang kontras.
+*/
+@media (prefers-color-scheme: dark) {
   :root {
-    --background: #ffffff;
-    --foreground: #171717;
-    --card: #f5f5f5;
-    --border: #d4d4d4;
+    --background: #0f172a;  /* slate-900 */
+    --foreground: #e2e8f0;  /* slate-200 */
+    --card: #1e293b;        /* slate-800 */
+    --border: #334155;      /* slate-700 */
   }
 }
 
+/* 6. Style <body> utama */
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Poppins', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.input {
-  @apply border p-2 rounded w-full bg-white text-black dark:bg-[#2a2b2d] dark:text-white dark:border-gray-600;
-}
+/* 7. Komponen kustom di dalam @layer dengan palet warna baru */
+@layer components {
+  /* Kelas-kelas ini akan otomatis mengikuti variabel warna di atas */
+  .input {
+    @apply border p-2 rounded w-full bg-white text-black dark:bg-[#1e293b] dark:text-white dark:border-[#334155];
+  }
 
-.btn {
-  @apply bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700;
-}
+  .card {
+    @apply bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-lg shadow-slate-200/50 dark:shadow-black/20 text-[var(--foreground)];
+  }
+  
+  .navbar {
+    @apply fixed z-50 left-0 right-0 flex justify-around md:justify-center md:space-x-6 py-2 px-4 md:px-8 shadow-md shadow-slate-200/50 border-t md:border-b transition;
+    background: var(--background);
+    color: var(--foreground);
+    border-color: var(--border);
+  }
 
-.card {
-  @apply bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow text-[var(--foreground)];
-}
+   .btn {
+    @apply px-5 py-2.5 font-bold rounded-lg text-sm text-center transition-all duration-200
+           focus:outline-none focus:ring-4;
+  }
 
-.navbar {
-  @apply fixed z-50 left-0 right-0 flex justify-around md:justify-center md:space-x-6 py-2 px-4 md:px-8 shadow border-t md:border-b transition;
-  background: var(--background);
-  color: var(--foreground);
-  border-color: var(--border);
+  /*
+    Perbaikan di sini: Tambahkan opasitas `/50` ke `focus:ring-sky-300`
+  */
+  .btn-primary {
+    @apply bg-sky-500 text-white
+           hover:bg-sky-600
+           focus:ring-sky-300/50
+           shadow-lg shadow-sky-500/30;
+  }
+
+  /*
+    Perbaikan di sini: Tambahkan opasitas `/50` ke `focus:ring-emerald-300`
+  */
+  .btn-success {
+    @apply bg-emerald-500 text-white
+           hover:bg-emerald-600
+           focus:ring-emerald-300/50
+           shadow-lg shadow-emerald-500/30;
+  }
 }

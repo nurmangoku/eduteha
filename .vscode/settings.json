@@ -1,0 +1,19 @@
+// FILE: .vscode/settings.json
+{
+  // Aktifkan ekstensi Deno
+  "deno.enable": true,
+
+  // Tentukan path di mana Deno harus aktif
+  // Ini memastikan Deno hanya aktif untuk folder functions Anda
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+
+  // Aktifkan linting (pemeriksaan kode) dari Deno
+  "deno.lint": true,
+  
+  // Izinkan Deno untuk memeriksa semua file TypeScript
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  }
+}
