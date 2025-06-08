@@ -1,5 +1,3 @@
-// FILE: app/dashboard/admin/create-users/page.tsx
-
 'use client'
 import { useState } from 'react'
 import * as XLSX from 'xlsx' // Impor library xlsx
@@ -57,14 +55,12 @@ export default function CreateUsersPage() {
         )
 
         const responseData = await response.json()
-        if (!response.ok) throw new Error(responseData.error)
+        if (!response.ok) throw new Error(responseData.error || 'Terjadi kesalahan di server.')
 
-        setResult(`Proses Selesai! Berhasil: ${responseData.created_count}, Gagal: ${responseData.failed_count}. Lihat konsol untuk detail.`);
-        console.log("Detail Berhasil:", responseData.created_details)
-        if (responseData.failed_details.length > 0) {
-            console.error("Detail Gagal:", responseData.failed_details);
-        } else {
-            console.log("Detail Gagal:", responseData.failed_details);
+        setResult(`Proses Selesai! Berhasil: ${responseData.createdUsers.length}, Gagal: ${responseData.failedUsers.length}.`);
+        console.log("Detail Berhasil:", responseData.createdUsers)
+        if (responseData.failedUsers.length > 0) {
+          console.error("Detail Gagal:", responseData.failedUsers)
         }
 
       } catch (error: any) {
@@ -81,8 +77,9 @@ export default function CreateUsersPage() {
       <div className="max-w-2xl mx-auto p-8 card mt-10">
         <h1 className="text-3xl font-bold mb-6">Buat Akun dari File Excel</h1>
         
+        {/* --- PERBAIKAN DI SINI --- */}
         <p className="mb-4">
-          Unggah file Excel (.xlsx) dengan kolom: <strong>"Nama Lengkap"</strong>, <strong>"Kelas"</strong>, <strong>"Peran (guru/murid)"</strong>, dan <strong>"Password Awal (Opsional)"</strong>.
+          Unggah file Excel (.xlsx) dengan kolom: <strong>&quot;Nama Lengkap&quot;</strong>, <strong>&quot;Kelas&quot;</strong>, <strong>&quot;Peran (guru/murid)&quot;</strong>, dan <strong>&quot;Password Awal (Opsional)&quot;</strong>.
         </p>
         
         <a href="/template-pendaftaran.xlsx" download className="text-sky-500 hover:underline mb-6 block">
