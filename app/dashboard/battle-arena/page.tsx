@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Swords, Check, X, Clock, Award } from 'lucide-react'
+import { Swords, Check, X, Clock, Award, Scale } from 'lucide-react'
 
 // Tipe data untuk memastikan konsistensi
 interface Profile {
@@ -114,26 +114,30 @@ export default function BattleArenaPage() {
   }
 
   // Komponen untuk menampilkan label status yang informatif
-  const StatusLabel = ({ battle }: { battle: Battle }) => {
+    const StatusLabel = ({ battle }: { battle: Battle }) => {
+    // KONDISI 1: Pertarungan Selesai
     if (battle.status === 'completed') {
+      // Jika tidak ada pemenang, berarti seri
+      if (battle.winner === null) {
+        return <span className="flex items-center gap-1 text-sm font-bold text-blue-500"><Scale size={16}/> Seri</span>;
+      }
+      // Jika ada pemenang, tentukan menang atau kalah
       const isWinner = battle.winner?.full_name === currentUser?.full_name;
       return <span className={`flex items-center gap-1 text-sm font-bold ${isWinner ? 'text-green-500' : 'text-red-500'}`}><Award size={16}/> {isWinner ? 'Menang' : 'Kalah'}</span>;
     }
+    // KONDISI 2: Ditolak
     if (battle.status === 'declined') {
       return <span className="flex items-center gap-1 text-sm font-bold text-gray-500"><X size={16}/> Ditolak</span>;
     }
+    // KONDISI 3: Status lainnya (pending, ongoing)
     if (battle.challenger?.id === currentUser?.id) {
-        if (battle.status === 'pending') {
-            return <span className="flex items-center gap-1 text-sm font-bold text-yellow-500"><Clock size={16}/> Menunggu Lawan</span>;
-        }
-        if (battle.status === 'ongoing') {
-            return <span className="flex items-center gap-1 text-sm font-bold text-cyan-500"><Clock size={16}/> Lawan Mengerjakan</span>;
-        }
+        if (battle.status === 'pending') return <span className="flex items-center gap-1 text-sm font-bold text-yellow-500"><Clock size={16}/> Menunggu Lawan</span>;
+        if (battle.status === 'ongoing') return <span className="flex items-center gap-1 text-sm font-bold text-cyan-500"><Clock size={16}/> Lawan Mengerjakan</span>;
     }
     if (battle.opponent?.id === currentUser?.id && battle.status === 'ongoing') {
         return <span className="flex items-center gap-1 text-sm font-bold text-blue-500"><Swords size={16}/> Giliranmu!</span>;
     }
-    return <span className="flex items-center gap-1 text-sm font-bold text-gray-500">{battle.status}</span>; // Fallback
+    return <span className="flex items-center gap-1 text-sm font-bold text-gray-500">{battle.status}</span>;
   }
 
   // Filter data untuk ditampilkan di UI
@@ -199,9 +203,15 @@ export default function BattleArenaPage() {
                <div key={b.id} className="p-3 bg-slate-100 dark:bg-slate-700 rounded-md text-sm">
                  <div className="flex justify-between items-center">
                     <p>vs <strong>{b.challenger?.id === currentUser?.id ? b.opponent?.full_name : b.challenger?.full_name}</strong></p>
+                    {/* Komponen StatusLabel akan menampilkan "Seri" jika sesuai */}
                     <StatusLabel battle={b} />
                  </div>
-                 {b.status === 'completed' && b.winner && (<p className="text-xs mt-1">Pemenang: <strong>{b.winner.full_name}</strong></p>)}
+                 {/* Tambahkan kondisi untuk menampilkan hasil seri */}
+                 {b.status === 'completed' && (
+                    <p className="text-xs mt-1">
+                        {b.winner ? `Pemenang: ${b.winner.full_name}` : 'Hasil Pertarungan: Seri'}
+                    </p>
+                 )}
                </div>
             )) : <p className="text-sm text-gray-500">Belum ada riwayat pertarungan.</p>}
           </div>

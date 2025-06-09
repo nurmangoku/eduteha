@@ -5,12 +5,12 @@ import Link from "next/link"
 
 export default function Home() {
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center bg-gray-100 text-center px-6">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-gray-300 text-center px-6">
       
       {/* Background image */}
       <div className="absolute inset-0 z-0">
         <Image
-          src="/next.svg" // Ganti dengan gambar background nanti
+          src="/th.png" // Ganti dengan gambar background nanti
           alt="Background"
           fill
           className="object-contain opacity-10"
@@ -21,11 +21,11 @@ export default function Home() {
       <div className="z-10 max-w-xl space-y-6">
         <div className="flex justify-center">
           <Image
-            src="/next.svg"
+            src="/th.png"
             alt="Logo"
             width={100}
             height={100}
-            className="dark:invert"
+            // className="dark:invert"
           />
         </div>
 
