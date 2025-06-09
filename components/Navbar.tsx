@@ -1,14 +1,12 @@
-// FILE: components/Navbar.tsx (Dengan Perbaikan Menu Admin Mobile)
-
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState, Fragment } from 'react' // Tambahkan Fragment
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   User, BookOpen, GalleryHorizontalEnd, LogOut,
-  Swords, Users as UsersIcon, ListPlus, Shield, X
+  Swords, Shield, List, Users as UsersIcon, ListPlus, X
 } from 'lucide-react'
 
 // Tipe untuk setiap item navigasi
@@ -23,7 +21,7 @@ interface NavItem {
 export default function Navbar() {
   const [role, setRole] = useState<'guru' | 'murid' | null>(null)
   const [loading, setLoading] = useState(true);
-  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false); // State untuk modal admin
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const router = useRouter()
   const pathname = usePathname()
 
@@ -48,9 +46,10 @@ export default function Navbar() {
     router.push('/login')
   }
 
-  // Struktur Navigasi (tidak ada perubahan)
+  // Struktur Navigasi Lengkap
   const navItems: NavItem[] = [
-    { href: '/dashboard', label: 'Profil', icon: <User size={24} />, roles: ['guru', 'murid'], section: 'main' },
+    { href: '/dashboard', label: 'Dasbor', icon: <User size={24} />, roles: ['guru', 'murid'], section: 'main' },
+    { href: '/dashboard/journal', label: 'Jurnal', icon: <List size={24} />, roles: ['murid'], section: 'main' },
     { href: '/dashboard/courses', label: 'Kursus', icon: <BookOpen size={24} />, roles: ['murid'], section: 'main' },
     { href: '/dashboard/manage-courses', label: 'Kelola Kursus', icon: <BookOpen size={24} />, roles: ['guru'], section: 'main' },
     { href: '/dashboard/gallery', label: 'Galeri', icon: <GalleryHorizontalEnd size={24} />, roles: ['guru', 'murid'], section: 'main' },
@@ -61,8 +60,11 @@ export default function Navbar() {
   
   const accessibleNavItems = navItems.filter(item => item.roles.includes(role!))
 
+  // --- PERBAIKAN DI SINI ---
+  // Pastikan komponen helper ini secara eksplisit me-return elemen JSX.
   const NavLink = ({ item, onClick }: { item: NavItem, onClick?: () => void }) => {
     const isActive = pathname === item.href;
+    // Kata kunci 'return' sangat penting
     return (
       <Link href={item.href} title={item.label} onClick={onClick} className={`
         flex items-center justify-start gap-4 p-3 rounded-lg transition-colors
@@ -74,6 +76,7 @@ export default function Navbar() {
     )
   }
   
+  // Lakukan hal yang sama untuk MobileNavLink
   const MobileNavLink = ({ item }: { item: NavItem }) => {
       const isActive = pathname === item.href;
       return (
@@ -85,12 +88,13 @@ export default function Navbar() {
           </Link>
       )
   }
+  // -------------------------
 
   if (loading) return null;
 
   return (
     <>
-      {/* ===== Sidebar untuk Desktop (md dan lebih besar) ===== */}
+      {/* Sidebar untuk Desktop (md dan lebih besar) */}
       <aside className="hidden md:flex flex-col w-64 h-screen p-4 bg-[var(--card)] border-r border-[var(--border)] fixed">
         <div className="text-2xl font-bold mb-10 text-center">EdukasiApp</div>
         <nav className="flex flex-col flex-grow space-y-2">
@@ -112,26 +116,14 @@ export default function Navbar() {
         </div>
       </aside>
 
-      {/* ===== Bottom Nav untuk Mobile (di bawah md) ===== */}
+      {/* Navigasi Bawah untuk Mobile (di bawah md) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--card)] border-t border-[var(--border)] flex justify-around items-center z-50">
-          {accessibleNavItems.filter(item => item.section === 'main').map(item => <MobileNavLink key={item.href} item={item} />)}
-          
-          {/* --- TOMBOL BARU UNTUK MEMBUKA MENU ADMIN --- */}
-          {role === 'guru' && (
-             <button onClick={() => setIsAdminMenuOpen(true)} className={`flex flex-col items-center transition-colors w-16 text-gray-500 hover:text-sky-500`}>
-                <Shield size={24}/>
-                <span className="text-[10px] mt-1">Admin</span>
-            </button>
-          )}
-          {/* ------------------------------------------- */}
-
-          <button onClick={logout} className="flex flex-col items-center transition-colors w-16 text-gray-500 hover:text-red-500">
-              <LogOut size={24}/>
-              <span className="text-[10px] mt-1">Keluar</span>
-          </button>
+          {accessibleNavItems.filter(item => item.section === 'main' && item.href !== '/dashboard').slice(0, 3).map(item => <MobileNavLink key={item.href} item={item} />)}
+          <MobileNavLink item={{ href: '/dashboard', label: 'Profil', icon: <User size={24} />, roles: ['guru', 'murid'], section: 'main' }} />
+          {role === 'guru' && (<button onClick={() => setIsAdminMenuOpen(true)} className={`flex flex-col items-center transition-colors w-16 text-gray-500 hover:text-sky-500`}><Shield size={24}/><span className="text-[10px] mt-1">Admin</span></button>)}
       </nav>
       
-      {/* --- MODAL UNTUK MENU ADMIN DI MOBILE --- */}
+      {/* Modal untuk Menu Admin di Mobile */}
       {isAdminMenuOpen && (
         <div className="md:hidden fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
             <div className="card w-full max-w-sm">
@@ -141,13 +133,15 @@ export default function Navbar() {
                 </div>
                 <nav className="flex flex-col space-y-2">
                     {accessibleNavItems.filter(item => item.section === 'admin').map(item => (
-                        <NavLink key={item.href} item={item} onClick={() => setIsAdminMenuOpen(false)} />
+                        <Link key={item.href} href={item.href} onClick={() => setIsAdminMenuOpen(false)} className="flex items-center gap-4 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                            {item.icon}
+                            <span className="font-semibold">{item.label}</span>
+                        </Link>
                     ))}
                 </nav>
             </div>
         </div>
       )}
-      {/* ----------------------------------------- */}
     </>
   )
 }

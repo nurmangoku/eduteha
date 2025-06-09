@@ -1,290 +1,165 @@
 'use client'
-import { useState } from 'react'
-import { supabase } from '@/lib/supabase' // Pastikan path ini sesuai
+import { useState, FormEvent } from 'react'
+import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import RoleGuard from '@/components/RoleGuard' // Pastikan path ini sesuai
+import RoleGuard from '@/components/RoleGuard'
 
-interface StepData {
+// Tipe untuk setiap tahap
+interface Stage {
+  title: string;
   content: string;
   question: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  correctAnswer: 'A' | 'B' | 'C' | '';
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  correct_answer: string;
 }
 
-const initialStep: StepData = {
-  content: '',
-  question: '',
-  optionA: '',
-  optionB: '',
-  optionC: '',
-  correctAnswer: '',
-};
+// Komponen Form untuk satu tahap, agar bisa dipakai ulang
+const StageForm = ({ stage, setStage }: { stage: Stage, setStage: (stage: Stage) => void }) => (
+  <div className="space-y-4 p-4 border border-[var(--border)] rounded-lg">
+    <input type="text" placeholder="Judul Tahap" value={stage.title} onChange={e => setStage({...stage, title: e.target.value})} className="input font-semibold" required />
+    <textarea placeholder="Konten Materi" value={stage.content} onChange={e => setStage({...stage, content: e.target.value})} className="input h-24" required></textarea>
+    <div className="pt-4 border-t border-[var(--border)] space-y-2">
+      <p className="text-sm font-semibold">Soal Pilihan Ganda:</p>
+      <input type="text" placeholder="Pertanyaan" value={stage.question} onChange={e => setStage({...stage, question: e.target.value})} className="input" required />
+      <input type="text" placeholder="Opsi A" value={stage.option_a} onChange={e => setStage({...stage, option_a: e.target.value})} className="input" required />
+      <input type="text" placeholder="Opsi B" value={stage.option_b} onChange={e => setStage({...stage, option_b: e.target.value})} className="input" required />
+      <input type="text" placeholder="Opsi C" value={stage.option_c} onChange={e => setStage({...stage, option_c: e.target.value})} className="input" required />
+      <select value={stage.correct_answer} onChange={e => setStage({...stage, correct_answer: e.target.value})} className="input w-full md:w-1/2">
+        <option value="A">Jawaban Benar: A</option>
+        <option value="B">Jawaban Benar: B</option>
+        <option value="C">Jawaban Benar: C</option>
+      </select>
+    </div>
+  </div>
+);
 
 export default function CreateCoursePage() {
-  const router = useRouter()
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [kelas, setKelas] = useState('')
-  const [steps, setSteps] = useState<StepData[]>(() => Array(5).fill(null).map(() => ({ ...initialStep })));
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const router = useRouter();
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [kelas, setKelas] = useState('Kelas 1');
+  const [loading, setLoading] = useState(false);
 
-  const handleStepChange = (index: number, field: keyof StepData, value: string) => {
-    setSteps(prevSteps => 
-      prevSteps.map((step, i) => {
-        if (i === index) {
-          const updatedStep = { ...step };
-          if (field === 'correctAnswer') {
-            const validAnswers = ['A', 'B', 'C', ''];
-            updatedStep[field] = validAnswers.includes(value.toUpperCase()) 
-              ? (value.toUpperCase() as 'A' | 'B' | 'C' | '') 
-              : '';
-          } else {
-            updatedStep[field] = value;
-          }
-          return updatedStep;
-        }
-        return step;
-      })
-    );
+  // Daftar kelas yang tetap
+  const classLevels = ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'];
+
+  // State untuk 4 tahap wajib
+  const [stages, setStages] = useState<Stage[]>(Array(4).fill({
+    title: '', content: '', question: '', option_a: '', option_b: '', option_c: '', correct_answer: 'A'
+  }));
+  
+  // State untuk tahap 5 opsional
+  const [hasFifthStage, setHasFifthStage] = useState(false);
+  const [fifthStage, setFifthStage] = useState<Stage>({
+    title: 'Tahap Bonus',
+    content: 'Kerjakan soal bonus di bawah ini untuk menguji pemahamanmu lebih dalam!',
+    question: 'Siapakah presiden pertama Republik Indonesia?',
+    option_a: 'Soeharto',
+    option_b: 'Soekarno',
+    option_c: 'B.J. Habibie',
+    correct_answer: 'B'
+  });
+
+  const handleStageChange = (index: number, newStageData: Stage) => {
+    const updatedStages = [...stages];
+    updatedStages[index] = newStageData;
+    setStages(updatedStages);
   };
 
-  const handleSubmit = async () => {
-    setError(null)
-    setSuccessMessage(null)
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
-    if (!title.trim() || !description.trim() || !kelas) {
-      setError('Judul, deskripsi, dan kelas tidak boleh kosong.')
-      return
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
 
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      if (i < 4) { // Tahap 1-4
-        if (!step.content.trim()) {
-          setError(`Konten untuk Tahapan ${i + 1} tidak boleh kosong.`);
-          return;
-        }
-        if (!step.question.trim() || !step.optionA.trim() || !step.optionB.trim() || !step.optionC.trim() || !step.correctAnswer) {
-          setError(`Soal Pilihan Ganda (pertanyaan, semua pilihan, dan jawaban benar) untuk Tahapan ${i + 1} tidak boleh kosong.`);
-          return;
-        }
-      } else { // Tahap 5 (Link YouTube Opsional, Tanpa Soal)
-        if (step.content.trim()) {
-          try {
-            new URL(step.content); 
-          } catch (_) {
-            setError(`Tahapan 5: Link YouTube tidak valid. Kosongkan jika tidak ada.`);
-            return;
-          }
-        }
-      }
-    }
+    // 1. Buat kursus utama
+    const { data: course, error: courseError } = await supabase.from('courses')
+      .insert({ title, description, kelas, created_by: user.id })
+      .select('id')
+      .single();
 
-    setLoading(true)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('Tidak terautentikasi. Silakan login kembali.');
-      }
-
-      const { data: course, error: courseError } = await supabase.from('courses').insert({
-        title,
-        description,
-        kelas,
-        created_by: user.id
-      }).select().single()
-
-      if (courseError) throw courseError;
-      if (!course) throw new Error('Gagal membuat data kursus inti.');
-
-      const stepPromises = steps.map((stepData, i) => {
-        const contentToSave = stepData.content.trim();
-        const isVideoStep = i === 4 && contentToSave !== '';
-
-        if (i === 4) { 
-          return supabase.from('course_steps').insert({
-            course_id: course.id,
-            step_number: i + 1,
-            content: contentToSave,
-            is_video: isVideoStep,
-            question: null,
-            option_a: null,
-            option_b: null,
-            option_c: null,
-            correct_answer: null,
-          });
-        } else { 
-          return supabase.from('course_steps').insert({
-            course_id: course.id,
-            step_number: i + 1,
-            content: contentToSave,
-            is_video: isVideoStep,
-            question: stepData.question.trim(),
-            option_a: stepData.optionA.trim(),
-            option_b: stepData.optionB.trim(),
-            option_c: stepData.optionC.trim(),
-            correct_answer: stepData.correctAnswer,
-          });
-        }
-      });
-      
-      const stepResults = await Promise.all(stepPromises);
-      for (const result of stepResults) {
-        if (result.error) {
-          console.error('Gagal menyimpan salah satu langkah kursus:', result.error);
-          // Pertimbangkan untuk menghapus kursus yang sudah dibuat jika salah satu langkah gagal
-          // await supabase.from('courses').delete().match({ id: course.id });
-          throw new Error(`Gagal menyimpan Tahapan: ${result.error.message}`);
-        }
-      }
-      
-      setSuccessMessage('Kursus berhasil dibuat! Mengarahkan...');
-      setTitle('');
-      setDescription('');
-      setKelas('');
-      setSteps(Array(5).fill(null).map(() => ({ ...initialStep })));
-
-      setTimeout(() => {
-        router.push('/dashboard/manage-courses');
-      }, 2000);
-
-    } catch (e: any) {
-      console.error('Error saat membuat kursus:', e);
-      setError(e.message || 'Terjadi kesalahan saat membuat kursus.');
-    } finally {
+    if (courseError || !course) {
+      alert("Gagal membuat kursus: " + courseError?.message);
       setLoading(false);
+      return;
     }
-  }
+
+    // 2. Siapkan data semua tahap
+    let allStages = stages.map((stage, index) => ({
+      ...stage,
+      course_id: course.id,
+      step_number: index + 1
+    }));
+    
+    // 3. Jika toggle aktif, tambahkan tahap 5
+    if (hasFifthStage) {
+      allStages.push({
+        ...fifthStage,
+        course_id: course.id,
+        step_number: 5
+      });
+    }
+
+    // 4. Masukkan semua tahap ke database
+    const { error: stepsError } = await supabase.from('course_steps').insert(allStages);
+
+    if (stepsError) {
+      alert("Gagal menyimpan materi kursus: " + stepsError.message);
+      // Hapus kursus yang sudah terbuat jika materi gagal
+      await supabase.from('courses').delete().eq('id', course.id);
+    } else {
+      alert("Kursus berhasil dibuat!");
+      router.push('/dashboard/manage-courses');
+    }
+    setLoading(false);
+  };
 
   return (
     <RoleGuard allowedRoles={['guru']}>
-      <div className="text-black max-w-xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
-        <h2 className="text-2xl font-bold mb-6 text-center text-gray-700 dark:text-white">Buat Kursus Baru</h2>
-        
-        {error && <p className="mb-4 p-3 text-sm text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-200 rounded-md">{error}</p>}
-        {successMessage && <p className="mb-4 p-3 text-sm text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-200 rounded-md">{successMessage}</p>}
-
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Judul Kursus</label>
-            <input 
-              id="title"
-              className="input w-full dark:bg-gray-700 dark:text-white dark:border-gray-600" 
-              placeholder="Contoh: Belajar Matematika Dasar"
-              value={title} 
-              onChange={(e) => setTitle(e.target.value)} 
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Deskripsi Singkat</label>
-            <textarea 
-              id="description"
-              className="input w-full dark:bg-gray-700 dark:text-white dark:border-gray-600" 
-              placeholder="Jelaskan secara singkat tentang kursus ini"
-              value={description} 
-              onChange={(e) => setDescription(e.target.value)} 
-              rows={3}
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label htmlFor="kelas" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pilih Kelas</label>
-            <select
-              id="kelas"
-              className="input w-full dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              value={kelas}
-              onChange={(e) => setKelas(e.target.value)}
-              disabled={loading}
-            >
-              <option value="">-- Pilih Kelas --</option>
-              {[1, 2, 3, 4, 5, 6].map(k => (
-                <option key={k} value={`Kelas ${k}`}>Kelas {k}</option>
-              ))}
+      <div className="max-w-4xl mx-auto p-4 md:p-8">
+        <h1 className="text-3xl font-bold mb-8">Buat Kursus Baru</h1>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="card p-6 space-y-4">
+            <h2 className="text-xl font-semibold">Informasi Dasar Kursus</h2>
+            <input type="text" placeholder="Judul Kursus" value={title} onChange={e => setTitle(e.target.value)} className="input" required />
+            <textarea placeholder="Deskripsi Singkat Kursus" value={description} onChange={e => setDescription(e.target.value)} className="input h-20" required></textarea>
+            <select value={kelas} onChange={e => setKelas(e.target.value)} className="input">
+              {classLevels.map(level => <option key={level} value={level}>{level}</option>)}
             </select>
           </div>
-
-          <h3 className="text-xl font-semibold pt-4 border-t mt-6 text-gray-700 dark:text-gray-300">Materi & Soal per Tahapan</h3>
-          {steps.map((stepData, i) => (
-            // Menggunakan `key={'step-' + i}` untuk memastikan key unik dan stabil
-            <div key={`step-${i}`} className="p-4 border rounded-lg space-y-3 bg-gray-50 dark:bg-gray-700/50">
-              <h4 className="text-lg font-medium text-gray-700 dark:text-gray-200">
-                Tahapan {i + 1} 
-                {i < 4 && <span className="text-red-500 text-xs ml-1">(Konten & Soal Wajib)</span>}
-                {i === 4 && <span className="text-xs ml-1 text-gray-500 dark:text-gray-400">(Link Video YouTube - Opsional, Tanpa Soal)</span>}
-              </h4>
-              <div>
-                <label htmlFor={`step-content-${i}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Konten Tahapan {i + 1} {i === 4 ? '(Link Video YouTube, bisa dikosongkan)' : ''}
-                </label>
-                <textarea 
-                  id={`step-content-${i}`}
-                  className="input w-full dark:bg-gray-600 dark:text-white dark:border-gray-500"
-                  placeholder={i === 4 ? 'Contoh: https://www.youtube.com/watch?v=... (Kosongkan jika tidak ada)' : `Isi materi untuk tahapan ${i + 1}...`}
-                  value={stepData.content} 
-                  onChange={(e) => handleStepChange(i, 'content', e.target.value)} 
-                  rows={i === 4 ? 2 : 4}
-                  disabled={loading}
-                />
+          
+          <div className="card p-6 space-y-4">
+            <h2 className="text-xl font-semibold">Tahap Pembelajaran (1-4)</h2>
+            {stages.map((stage, index) => (
+              <div key={index}>
+                <h3 className="font-bold mb-2">Tahap {index + 1}</h3>
+                <StageForm stage={stage} setStage={(newStage) => handleStageChange(index, newStage)} />
               </div>
+            ))}
+          </div>
 
-              { i < 4 && (
-                <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-600 space-y-2">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Soal Pilihan Ganda untuk Tahapan {i + 1} 
-                    <span className="text-red-500 text-xs ml-1">(Wajib Diisi Lengkap)</span>
-                  </p>
-                  <div>
-                    <label htmlFor={`step-question-${i}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Pertanyaan</label>
-                    <input 
-                      id={`step-question-${i}`}
-                      type="text"
-                      className="input input-sm w-full dark:bg-gray-600 dark:text-white dark:border-gray-500"
-                      placeholder="Tulis pertanyaan soal..."
-                      value={stepData.question}
-                      onChange={(e) => handleStepChange(i, 'question', e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                        <label htmlFor={`step-optA-${i}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Pilihan A</label>
-                        <input id={`step-optA-${i}`} type="text" className="input input-sm w-full dark:bg-gray-600 dark:text-white dark:border-gray-500" placeholder="Pilihan A" value={stepData.optionA} onChange={(e) => handleStepChange(i, 'optionA', e.target.value)} disabled={loading} />
-                    </div>
-                    <div>
-                        <label htmlFor={`step-optB-${i}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Pilihan B</label>
-                        <input id={`step-optB-${i}`} type="text" className="input input-sm w-full dark:bg-gray-600 dark:text-white dark:border-gray-500" placeholder="Pilihan B" value={stepData.optionB} onChange={(e) => handleStepChange(i, 'optionB', e.target.value)} disabled={loading} />
-                    </div>
-                    <div>
-                        <label htmlFor={`step-optC-${i}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Pilihan C</label>
-                        <input id={`step-optC-${i}`} type="text" className="input input-sm w-full dark:bg-gray-600 dark:text-white dark:border-gray-500" placeholder="Pilihan C" value={stepData.optionC} onChange={(e) => handleStepChange(i, 'optionC', e.target.value)} disabled={loading} />
-                    </div>
-                    <div>
-                        <label htmlFor={`step-correct-${i}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Jawaban Benar</label>
-                        <select id={`step-correct-${i}`} className="input input-sm w-full dark:bg-gray-600 dark:text-white dark:border-gray-500" value={stepData.correctAnswer} onChange={(e) => handleStepChange(i, 'correctAnswer', e.target.value)} disabled={loading}>
-                            <option value="">-- Pilih Jawaban --</option>
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                        </select>
-                    </div>
-                  </div>
-                </div>
-              )}
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Tahap Bonus ke-5 (Opsional)</h2>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={hasFifthStage} onChange={() => setHasFifthStage(!hasFifthStage)} className="sr-only peer" />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+              </label>
             </div>
-          ))}
-          <button 
-            onClick={handleSubmit} 
-            className="btn w-full py-2.5 mt-6"
-            disabled={loading}
-          >
-            {loading ? 'Menyimpan...' : 'Simpan Kursus'}
+            {hasFifthStage && (
+              <div className="mt-4">
+                 <StageForm stage={fifthStage} setStage={setFifthStage} />
+              </div>
+            )}
+          </div>
+          
+          <button type="submit" disabled={loading} className="btn btn-primary w-full !mt-8 text-lg">
+            {loading ? 'Menyimpan...' : 'Terbitkan Kursus'}
           </button>
-        </div>
+        </form>
       </div>
     </RoleGuard>
   )

@@ -4,22 +4,32 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-// --- Tipe Step (tidak ada perubahan) ---
+// Tipe data untuk setiap tahap
 interface Step {
-  id: string; title: string; content: string; is_video: boolean; question: string;
-  option_a: string; option_b: string; option_c: string; correct_answer: string;
+  id: string;
+  title: string;
+  content: string;
+  is_video: boolean;
+  question: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  correct_answer: string;
 }
 
+// Komponen untuk pesan di tengah layar
 const CenteredMessage = ({ children }: { children: React.ReactNode }) => (
     <div className="flex items-center justify-center min-h-[60vh] text-center p-6">
       <p className="text-xl text-gray-400">{children}</p>
     </div>
 );
 
+// Helper function untuk mengubah URL YouTube
 const getYouTubeEmbedUrl = (url: string): string | null => {
   try {
     const urlObj = new URL(url);
-    let videoId = urlObj.searchParams.get('v') || (urlObj.hostname === 'youtu.be' ? urlObj.pathname.slice(1) : null);
+    // --- PERBAIKAN DI SINI: Ganti 'let' menjadi 'const' ---
+    const videoId = urlObj.searchParams.get('v') || (urlObj.hostname === 'youtu.be' ? urlObj.pathname.slice(1) : null);
     return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
   } catch (error) {
     console.error("Invalid URL for YouTube embed:", error);
@@ -45,7 +55,6 @@ export default function StagePage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- PERBAIKAN LOGIKA PENGAMBILAN DATA ---
   const loadData = useCallback(async (currentUserId: string) => {
     setLoading(true);
     const { data: stepData } = await supabase.from('course_steps').select('*').eq('course_id', courseId).eq('step_number', stepNumber).single();
@@ -55,23 +64,20 @@ export default function StagePage() {
     }
     setStep(stepData);
 
-    // Cek apakah ini tahap materi (tanpa soal) atau tahap kuis
     const isContentOnlyStage = !stepData.question;
 
     if (isContentOnlyStage) {
-      // Jika ini hanya materi, langsung tandai sebagai selesai (is_correct: true)
       await supabase.from('course_progress').upsert({
         user_id: currentUserId,
         course_id: courseId,
         step_number: stepNumber,
-        answer: 'viewed', // Tandai sebagai sudah dilihat
+        answer: 'viewed',
         is_correct: true
       }, { onConflict: 'user_id, course_id, step_number' });
       
       setCompleted(true);
       setCorrect(true);
     } else {
-      // Jika ini tahap kuis, cek progres yang sudah ada
       const { data: progressData } = await supabase
         .from('course_progress')
         .select('*')
@@ -88,7 +94,6 @@ export default function StagePage() {
       }
     }
     
-    // Pengecekan tahap selanjutnya tetap sama
     const { data: nextStepsData } = await supabase
       .from('course_steps')
       .select('id')
@@ -99,7 +104,6 @@ export default function StagePage() {
     setHasNextStep(nextStepsData ? nextStepsData.length > 0 : false);
     setLoading(false);
   }, [courseId, stepNumber, router]);
-  // ----------------------------------------------------
 
   useEffect(() => {
     const fetchUserAndLoadData = async () => {
