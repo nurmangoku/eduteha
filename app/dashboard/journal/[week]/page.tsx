@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import RoleGuard from '@/components/RoleGuard'
 import { Save } from 'lucide-react'
-import Link from 'next/link' // PERBAIKAN: Tambahkan impor Link
+import Link from 'next/link'
 
 // Tipe data untuk jurnal
 interface JournalData {
@@ -19,7 +19,7 @@ interface JournalData {
 }
 
 export default function JournalEditorPage() {
-  const { week: weekStartDate } = useParams(); // Ambil tanggal dari URL
+  const { week: weekStartDate } = useParams();
   const router = useRouter();
 
   const [journal, setJournal] = useState<JournalData | null>(null);
@@ -27,7 +27,6 @@ export default function JournalEditorPage() {
   const [loading, setLoading] = useState(true);
   const [isNew, setIsNew] = useState(false);
 
-  // Fungsi untuk memuat atau menginisialisasi jurnal
   const loadJournal = useCallback(async (userId: string, week: string) => {
     setLoading(true);
     const { data } = await supabase
@@ -41,7 +40,6 @@ export default function JournalEditorPage() {
       setJournal(data);
       setIsNew(false);
     } else {
-      // Jika tidak ada data, siapkan jurnal baru
       setJournal({
         prayer_checklist: Array(7).fill(false),
         quran_checklist: Array(7).fill(false),
@@ -73,7 +71,6 @@ export default function JournalEditorPage() {
   const handleSaveJournal = async () => {
     if (!journal || !currentUser || typeof weekStartDate !== 'string') return;
     
-    // Gunakan upsert: update jika sudah ada, insert jika baru
     const { error } = await supabase
       .from('weekly_journals')
       .upsert({
@@ -81,14 +78,14 @@ export default function JournalEditorPage() {
         user_id: currentUser.id,
         week_start_date: weekStartDate,
       }, {
-        onConflict: 'user_id, week_start_date' // Kunci unik untuk upsert
+        onConflict: 'user_id, week_start_date'
       });
 
     if (error) {
       alert('Gagal menyimpan: ' + error.message);
     } else {
       alert('Jurnal berhasil disimpan!');
-      router.push('/dashboard/journal'); // Kembali ke daftar jurnal setelah menyimpan
+      router.push('/dashboard/journal');
     }
   };
 
@@ -118,8 +115,7 @@ export default function JournalEditorPage() {
             <div className="space-y-3">
               <p className="font-medium">Salat 5 Waktu</p>
               <div className="flex flex-wrap gap-2">{days.map((day, i) => <div key={i} className="flex items-center gap-2 p-2 bg-slate-100 dark:bg-slate-700 rounded-md"><input type="checkbox" checked={journal.prayer_checklist[i]} onChange={() => handleCheckboxChange('prayer_checklist', i)} className="w-5 h-5"/> <label>{day}</label></div>)}</div>
-              <p className="font-medium">Membaca Al-Qur'an</p>
-              <div className="flex flex-wrap gap-2">{days.map((day, i) => <div key={i} className="flex items-center gap-2 p-2 bg-slate-100 dark:bg-slate-700 rounded-md"><input type="checkbox" checked={journal.quran_checklist[i]} onChange={() => handleCheckboxChange('quran_checklist', i)} className="w-5 h-5"/> <label>{day}</label></div>)}</div>
+              <p className="font-medium">Membaca Al-Qur&apos;an</p> 
             </div>
           </div>
           <div className="card p-6 space-y-4">
