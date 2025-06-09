@@ -115,7 +115,9 @@ export default function JournalEditorPage() {
             <div className="space-y-3">
               <p className="font-medium">Salat 5 Waktu</p>
               <div className="flex flex-wrap gap-2">{days.map((day, i) => <div key={i} className="flex items-center gap-2 p-2 bg-slate-100 dark:bg-slate-700 rounded-md"><input type="checkbox" checked={journal.prayer_checklist[i]} onChange={() => handleCheckboxChange('prayer_checklist', i)} className="w-5 h-5"/> <label>{day}</label></div>)}</div>
-              <p className="font-medium">Membaca Al-Qur&apos;an</p> 
+              {/* --- PERBAIKAN DI SINI --- */}
+              <p className="font-medium">Membaca Al-Qur&apos;an</p>
+              <div className="flex flex-wrap gap-2">{days.map((day, i) => <div key={i} className="flex items-center gap-2 p-2 bg-slate-100 dark:bg-slate-700 rounded-md"><input type="checkbox" checked={journal.quran_checklist[i]} onChange={() => handleCheckboxChange('quran_checklist', i)} className="w-5 h-5"/> <label>{day}</label></div>)}</div>
             </div>
           </div>
           <div className="card p-6 space-y-4">

@@ -42,15 +42,12 @@ export default function CreateCoursePage() {
   const [kelas, setKelas] = useState('Kelas 1');
   const [loading, setLoading] = useState(false);
 
-  // Daftar kelas yang tetap
   const classLevels = ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'];
 
-  // State untuk 4 tahap wajib
   const [stages, setStages] = useState<Stage[]>(Array(4).fill({
     title: '', content: '', question: '', option_a: '', option_b: '', option_c: '', correct_answer: 'A'
   }));
   
-  // State untuk tahap 5 opsional
   const [hasFifthStage, setHasFifthStage] = useState(false);
   const [fifthStage, setFifthStage] = useState<Stage>({
     title: 'Tahap Bonus',
@@ -75,7 +72,6 @@ export default function CreateCoursePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    // 1. Buat kursus utama
     const { data: course, error: courseError } = await supabase.from('courses')
       .insert({ title, description, kelas, created_by: user.id })
       .select('id')
@@ -87,15 +83,15 @@ export default function CreateCoursePage() {
       return;
     }
 
-    // 2. Siapkan data semua tahap
-    let allStages = stages.map((stage, index) => ({
+    // --- PERBAIKAN DI SINI: Mengganti 'let' menjadi 'const' ---
+    const allStages = stages.map((stage, index) => ({
       ...stage,
       course_id: course.id,
       step_number: index + 1
     }));
     
-    // 3. Jika toggle aktif, tambahkan tahap 5
     if (hasFifthStage) {
+      // `.push()` pada array yang dideklarasikan dengan `const` adalah valid
       allStages.push({
         ...fifthStage,
         course_id: course.id,
@@ -103,12 +99,10 @@ export default function CreateCoursePage() {
       });
     }
 
-    // 4. Masukkan semua tahap ke database
     const { error: stepsError } = await supabase.from('course_steps').insert(allStages);
 
     if (stepsError) {
       alert("Gagal menyimpan materi kursus: " + stepsError.message);
-      // Hapus kursus yang sudah terbuat jika materi gagal
       await supabase.from('courses').delete().eq('id', course.id);
     } else {
       alert("Kursus berhasil dibuat!");
