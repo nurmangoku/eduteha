@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import RoleGuard from '@/components/RoleGuard'
 
-// Tipe untuk setiap tahap
+// Tipe untuk setiap tahap kuis
 interface Stage {
   title: string;
   content: string;
@@ -19,7 +19,7 @@ interface Stage {
 const StageForm = ({ stage, setStage }: { stage: Stage, setStage: (stage: Stage) => void }) => (
   <div className="space-y-4 p-4 border border-[var(--border)] rounded-lg">
     <input type="text" placeholder="Judul Tahap" value={stage.title} onChange={e => setStage({...stage, title: e.target.value})} className="input font-semibold" required />
-    <textarea placeholder="Konten Materi" value={stage.content} onChange={e => setStage({...stage, content: e.target.value})} className="input h-24" required></textarea>
+    <textarea placeholder="Konten Materi Teks" value={stage.content} onChange={e => setStage({...stage, content: e.target.value})} className="input h-24" required></textarea>
     <div className="pt-4 border-t border-[var(--border)] space-y-2">
       <p className="text-sm font-semibold">Soal Pilihan Ganda:</p>
       <input type="text" placeholder="Pertanyaan" value={stage.question} onChange={e => setStage({...stage, question: e.target.value})} className="input" required />
@@ -44,20 +44,14 @@ export default function CreateCoursePage() {
 
   const classLevels = ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'];
 
+  // State untuk 4 tahap wajib
   const [stages, setStages] = useState<Stage[]>(Array(4).fill({
     title: '', content: '', question: '', option_a: '', option_b: '', option_c: '', correct_answer: 'A'
   }));
   
+  // State untuk tahap 5 opsional
   const [hasFifthStage, setHasFifthStage] = useState(false);
-  const [fifthStage, setFifthStage] = useState<Stage>({
-    title: 'Tahap Bonus',
-    content: 'Kerjakan soal bonus di bawah ini untuk menguji pemahamanmu lebih dalam!',
-    question: 'Siapakah presiden pertama Republik Indonesia?',
-    option_a: 'Soeharto',
-    option_b: 'Soekarno',
-    option_c: 'B.J. Habibie',
-    correct_answer: 'B'
-  });
+  const [fifthStageLink, setFifthStageLink] = useState('');
 
   const handleStageChange = (index: number, newStageData: Stage) => {
     const updatedStages = [...stages];
@@ -69,9 +63,16 @@ export default function CreateCoursePage() {
     e.preventDefault();
     setLoading(true);
 
+    if (hasFifthStage && !fifthStageLink.trim()) {
+        alert("Harap isi link YouTube untuk tahap 5 atau nonaktifkan toggle.");
+        setLoading(false);
+        return;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
+    // 1. Buat kursus utama
     const { data: course, error: courseError } = await supabase.from('courses')
       .insert({ title, description, kelas, created_by: user.id })
       .select('id')
@@ -83,22 +84,32 @@ export default function CreateCoursePage() {
       return;
     }
 
-    // --- PERBAIKAN DI SINI: Mengganti 'let' menjadi 'const' ---
+    // 2. Siapkan data untuk 4 tahap wajib
     const allStages = stages.map((stage, index) => ({
       ...stage,
       course_id: course.id,
-      step_number: index + 1
+      step_number: index + 1,
+      is_video: false 
     }));
     
+    // 3. Jika toggle aktif, tambahkan data tahap 5
     if (hasFifthStage) {
-      // `.push()` pada array yang dideklarasikan dengan `const` adalah valid
       allStages.push({
-        ...fifthStage,
         course_id: course.id,
-        step_number: 5
+        step_number: 5,
+        title: 'Video Pembelajaran Tambahan', // Ini adalah judul yang akan disimpan
+        content: fifthStageLink,
+        is_video: true,
+        question: '',
+        option_a: '',
+        option_b: '',
+        option_c: '',
+        // --- PERBAIKAN DI SINI: Gunakan nilai default yang valid ---
+        correct_answer: 'A',
       });
     }
 
+    // 4. Masukkan semua tahap ke database
     const { error: stepsError } = await supabase.from('course_steps').insert(allStages);
 
     if (stepsError) {
@@ -126,7 +137,7 @@ export default function CreateCoursePage() {
           </div>
           
           <div className="card p-6 space-y-4">
-            <h2 className="text-xl font-semibold">Tahap Pembelajaran (1-4)</h2>
+            <h2 className="text-xl font-semibold">Tahap Pembelajaran & Kuis (1-4)</h2>
             {stages.map((stage, index) => (
               <div key={index}>
                 <h3 className="font-bold mb-2">Tahap {index + 1}</h3>
@@ -137,7 +148,7 @@ export default function CreateCoursePage() {
 
           <div className="card p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Tahap Bonus ke-5 (Opsional)</h2>
+              <h2 className="text-xl font-semibold">Tahap 5: Video Tambahan (Opsional)</h2>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" checked={hasFifthStage} onChange={() => setHasFifthStage(!hasFifthStage)} className="sr-only peer" />
                 <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
@@ -145,7 +156,14 @@ export default function CreateCoursePage() {
             </div>
             {hasFifthStage && (
               <div className="mt-4">
-                 <StageForm stage={fifthStage} setStage={setFifthStage} />
+                <label className="block text-sm font-medium mb-1">Link Video YouTube</label>
+                <input 
+                  type="url" 
+                  placeholder="https://www.youtube.com/watch?v=..." 
+                  value={fifthStageLink} 
+                  onChange={e => setFifthStageLink(e.target.value)} 
+                  className="input w-full" 
+                />
               </div>
             )}
           </div>
