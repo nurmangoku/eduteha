@@ -10,6 +10,12 @@ const nextConfig = {
         port: '',
         pathname: '/storage/v1/object/public/**', // Izinkan semua gambar dari storage public
       },
+      {
+        protocol: 'https',
+        hostname: 'api.dicebear.com',
+        port: '',
+        pathname: '/8.x/initials/svg/**',
+      },
     ],
   },
 };

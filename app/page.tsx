@@ -39,12 +39,12 @@ export default function Home() {
           Login
         </Link>
 
-        <p className="text-gray-700">
+        {/* <p className="text-gray-700">
           Belum punya akun?{" "}
           <Link href="/signup" className="text-blue-600 hover:underline">
             Daftar di sini
           </Link>
-        </p>
+        </p> */}
       </div>
     </div>
   )
