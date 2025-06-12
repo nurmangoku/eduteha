@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react' // Tambahkan Fragment
 import { supabase } from '@/lib/supabase'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   User, BookOpen, GalleryHorizontalEnd, LogOut,
-  Swords, Shield, List, Users as UsersIcon, ListPlus, X
+  Swords, List, Users as UsersIcon, ListPlus, Shield, Trophy, PlusCircle, X
 } from 'lucide-react'
 
 // Tipe untuk setiap item navigasi
@@ -42,59 +42,62 @@ export default function Navbar() {
   }, [])
 
   const logout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+    if (confirm('Apakah Anda yakin ingin keluar?')) {
+        await supabase.auth.signOut()
+        router.push('/login')
+    }
   }
 
-  // Struktur Navigasi Lengkap
+  // --- PERBAIKAN: Struktur Navigasi Disesuaikan ---
   const navItems: NavItem[] = [
-    { href: '/dashboard', label: 'Dasbor', icon: <User size={24} />, roles: ['guru', 'murid'], section: 'main' },
-    { href: '/dashboard/journal', label: 'Jurnal', icon: <List size={24} />, roles: ['murid'], section: 'main' },
-    { href: '/dashboard/courses', label: 'Kursus', icon: <BookOpen size={24} />, roles: ['murid'], section: 'main' },
-    { href: '/dashboard/manage-courses', label: 'Kelola Kursus', icon: <BookOpen size={24} />, roles: ['guru'], section: 'main' },
-    { href: '/dashboard/gallery', label: 'Galeri', icon: <GalleryHorizontalEnd size={24} />, roles: ['guru', 'murid'], section: 'main' },
-    { href: '/dashboard/battle-arena', label: 'Arena', icon: <Swords size={24} />, roles: ['murid'], section: 'main' },
-    { href: '/dashboard/admin/create-users', label: 'Buat Akun', icon: <UsersIcon size={24} />, roles: ['guru'], section: 'admin' },
-    { href: '/dashboard/admin/battle-questions', label: 'Bank Soal', icon: <ListPlus size={24} />, roles: ['guru'], section: 'admin' },
+    // Main Section
+    { href: '/dashboard', label: 'Profil', icon: <User size={22} />, roles: ['guru', 'murid'], section: 'main' },
+    { href: '/dashboard/gallery', label: 'Galeri', icon: <GalleryHorizontalEnd size={22} />, roles: ['guru', 'murid'], section: 'main' },
+    { href: '/dashboard/leaderboard', label: 'Peringkat', icon: <Trophy size={22} />, roles: ['guru', 'murid'], section: 'main' },
+    
+    // Siswa-only Main Section
+    { href: '/dashboard/courses', label: 'Kursus', icon: <BookOpen size={22} />, roles: ['murid'], section: 'main' },
+    { href: '/dashboard/battle-arena', label: 'Arena', icon: <Swords size={22} />, roles: ['murid'], section: 'main' },
+    { href: '/dashboard/journal', label: 'Jurnal', icon: <List size={22} />, roles: ['murid'], section: 'main' },
+    
+    // Guru-only Main Section
+    { href: '/dashboard/manage-courses', label: 'Kelola Kursus', icon: <BookOpen size={22} />, roles: ['guru'], section: 'main' },
+    { href: '/dashboard/admin/manage-students', label: 'Kelola Siswa', icon: <UsersIcon size={22} />, roles: ['guru'], section: 'main' },
+
+    // Admin Section (untuk sidebar desktop dan modal mobile)
+    { href: '/dashboard/admin/create-users', label: 'Buat Akun', icon: <PlusCircle size={22} />, roles: ['guru'], section: 'admin' },
+    { href: '/dashboard/admin/battle-questions', label: 'Bank Soal', icon: <ListPlus size={22} />, roles: ['guru'], section: 'admin' },
   ]
   
   const accessibleNavItems = navItems.filter(item => item.roles.includes(role!))
 
-  // --- PERBAIKAN DI SINI ---
-  // Pastikan komponen helper ini secara eksplisit me-return elemen JSX.
+  // Helper komponen untuk link di sidebar desktop
   const NavLink = ({ item, onClick }: { item: NavItem, onClick?: () => void }) => {
     const isActive = pathname === item.href;
-    // Kata kunci 'return' sangat penting
     return (
-      <Link href={item.href} title={item.label} onClick={onClick} className={`
-        flex items-center justify-start gap-4 p-3 rounded-lg transition-colors
-        ${isActive ? 'bg-sky-500/20 text-sky-500' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}
-      `}>
+      <Link href={item.href} title={item.label} onClick={onClick} className={`flex items-center justify-start gap-4 p-3 rounded-lg transition-colors ${isActive ? 'bg-sky-500/20 text-sky-500' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
         {item.icon}
         <span className="font-semibold">{item.label}</span>
       </Link>
     )
   }
   
-  // Lakukan hal yang sama untuk MobileNavLink
+  // Helper komponen untuk link di navigasi mobile
   const MobileNavLink = ({ item }: { item: NavItem }) => {
       const isActive = pathname === item.href;
       return (
-          <Link href={item.href} className={`flex flex-col items-center transition-colors w-16
-            ${isActive ? 'text-sky-500' : 'text-gray-500 hover:text-sky-500'}
-          `}>
+          <Link href={item.href} className={`flex flex-col items-center justify-center transition-colors w-full h-full ${isActive ? 'text-sky-500' : 'text-gray-500 hover:text-sky-500'}`}>
               {item.icon}
-              <span className="text-[10px] mt-1 truncate">{item.label}</span>
+              <span className="text-[10px] leading-tight mt-1 text-center">{item.label}</span>
           </Link>
       )
   }
-  // -------------------------
 
   if (loading) return null;
 
   return (
     <>
-      {/* Sidebar untuk Desktop (md dan lebih besar) */}
+      {/* ===== Sidebar untuk Desktop (md dan lebih besar) ===== */}
       <aside className="hidden md:flex flex-col w-64 h-screen p-4 bg-[var(--card)] border-r border-[var(--border)] fixed">
         <div className="text-2xl font-bold mb-10 text-center">EdukasiApp</div>
         <nav className="flex flex-col flex-grow space-y-2">
@@ -116,11 +119,32 @@ export default function Navbar() {
         </div>
       </aside>
 
-      {/* Navigasi Bawah untuk Mobile (di bawah md) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--card)] border-t border-[var(--border)] flex justify-around items-center z-50">
-          {accessibleNavItems.filter(item => item.section === 'main' && item.href !== '/dashboard').slice(0, 3).map(item => <MobileNavLink key={item.href} item={item} />)}
-          <MobileNavLink item={{ href: '/dashboard', label: 'Profil', icon: <User size={24} />, roles: ['guru', 'murid'], section: 'main' }} />
-          {role === 'guru' && (<button onClick={() => setIsAdminMenuOpen(true)} className={`flex flex-col items-center transition-colors w-16 text-gray-500 hover:text-sky-500`}><Shield size={24}/><span className="text-[10px] mt-1">Admin</span></button>)}
+      {/* ===== Navigasi Bawah untuk Mobile (dirombak total) ===== */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--card)] border-t border-[var(--border)] grid grid-cols-6 z-50">
+          {role === 'murid' && (
+            <>
+              <MobileNavLink item={navItems.find(i => i.href === '/dashboard/courses')!} />
+              <MobileNavLink item={navItems.find(i => i.href === '/dashboard/battle-arena')!} />
+              <MobileNavLink item={navItems.find(i => i.href === '/dashboard/leaderboard')!} />
+              <MobileNavLink item={navItems.find(i => i.href === '/dashboard/journal')!} />
+              <MobileNavLink item={navItems.find(i => i.href === '/dashboard/gallery')!} />
+              <MobileNavLink item={navItems.find(i => i.href === '/dashboard')!} />
+            </>
+          )}
+
+          {role === 'guru' && (
+            <>
+              <MobileNavLink item={navItems.find(i => i.href === '/dashboard')!} />
+              <MobileNavLink item={navItems.find(i => i.href === '/dashboard/manage-courses')!} />
+              <MobileNavLink item={navItems.find(i => i.href === '/dashboard/admin/manage-students')!} />
+              <MobileNavLink item={navItems.find(i => i.href === '/dashboard/leaderboard')!} />
+              <MobileNavLink item={navItems.find(i => i.href === '/dashboard/gallery')!} />
+              <button onClick={() => setIsAdminMenuOpen(true)} className={`flex flex-col items-center justify-center transition-colors w-full h-full text-gray-500 hover:text-sky-500`}>
+                  <Shield size={22}/>
+                  <span className="text-[10px] leading-tight mt-1">Admin</span>
+              </button>
+            </>
+          )}
       </nav>
       
       {/* Modal untuk Menu Admin di Mobile */}
