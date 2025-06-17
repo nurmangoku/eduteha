@@ -2,16 +2,15 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Award } from 'lucide-react'
-import Image from 'next/image'
+// Hapus import Image karena tidak lagi digunakan
+// import Image from 'next/image'
 
-// Tipe data untuk setiap entri di leaderboard
+// --- PERBAIKAN: Sederhanakan tipe data, hapus avatar_url ---
 interface LeaderboardEntry {
   rank: number;
   user_id: string;
   full_name: string;
   total_xp: number;
-  // Kita tambahkan avatar secara manual di frontend
-  avatar_url?: string;
 }
 
 export default function LeaderboardPage() {
@@ -28,19 +27,9 @@ export default function LeaderboardPage() {
     if (error) {
       console.error("Error fetching leaderboard:", error);
       setLeaderboard([]);
-    } else if (rpcData) {
-      // Ambil URL avatar untuk setiap pengguna di leaderboard
-      const userIds = rpcData.map((entry: LeaderboardEntry) => entry.user_id);
-      const { data: profilesData } = await supabase.from('profiles').select('id, avatar_url').in('id', userIds);
-      
-      const avatarMap = new Map(profilesData?.map(p => [p.id, p.avatar_url]));
-      
-      const leaderboardWithAvatars = rpcData.map((entry: LeaderboardEntry) => ({
-        ...entry,
-        avatar_url: avatarMap.get(entry.user_id)
-      }));
-
-      setLeaderboard(leaderboardWithAvatars);
+    } else {
+      // --- PERBAIKAN: Logika disederhanakan, tidak perlu lagi mengambil avatar ---
+      setLeaderboard(rpcData || []);
     }
     setLoading(false);
   }, [timeframe]);
@@ -60,7 +49,6 @@ export default function LeaderboardPage() {
     <div className="max-w-4xl mx-auto p-4 md:p-8">
       <h1 className="text-4xl font-bold mb-8 text-center">🏆 Papan Peringkat 🏆</h1>
       
-      {/* Tombol untuk mengganti rentang waktu */}
       <div className="flex justify-center mb-6 bg-slate-200 dark:bg-slate-700 p-1 rounded-lg">
         <button onClick={() => setTimeframe('all-time')} className={`px-4 py-2 rounded-md transition-colors w-1/2 ${timeframe === 'all-time' ? 'bg-[var(--card)] shadow font-bold' : ''}`}>Sepanjang Masa</button>
         <button onClick={() => setTimeframe('weekly')} className={`px-4 py-2 rounded-md transition-colors w-1/2 ${timeframe === 'weekly' ? 'bg-[var(--card)] shadow font-bold' : ''}`}>Minggu Ini</button>
@@ -71,17 +59,11 @@ export default function LeaderboardPage() {
       ) : (
         <div className="space-y-3">
           {leaderboard.map((player, index) => (
+            // --- PERBAIKAN: Hapus komponen Image dari sini ---
             <div key={player.user_id} className={`card p-4 flex items-center gap-4 ${index === 0 ? 'border-2 border-yellow-400' : ''}`}>
               <div className={`flex-shrink-0 w-10 h-10 font-bold rounded-full flex items-center justify-center ${getRankColor(player.rank)}`}>
                 {player.rank}
               </div>
-              <Image 
-                src={player.avatar_url || `https://api.dicebear.com/8.x/initials/svg?seed=${player.full_name}`}
-                alt={player.full_name}
-                width={48}
-                height={48}
-                className="rounded-full"
-              />
               <div className="flex-grow">
                 <p className={`font-bold ${index === 0 ? 'text-yellow-500' : ''}`}>
                   {player.full_name}

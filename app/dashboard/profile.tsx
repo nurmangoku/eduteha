@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 
-// Tipe Data untuk Dasbor
+// --- Tipe Data untuk Dasbor ---
 export interface ProfileData {
   id: string;
   full_name: string;
@@ -27,7 +27,7 @@ interface StudentStats {
   followed_courses: { title: string }[] | null;
 }
 
-// Komponen UI untuk Kartu Statistik
+// --- Komponen-komponen UI (StatCard, BarChart) ---
 const StatCard = ({ title, value, icon, link }: { title: string; value: number | string; icon: React.ReactNode; link?: string }) => {
   const CardContent = () => (
     <div className="card p-6 flex items-center gap-4 transition-all hover:shadow-lg hover:-translate-y-1">
@@ -41,7 +41,6 @@ const StatCard = ({ title, value, icon, link }: { title: string; value: number |
   return link ? <Link href={link}><CardContent /></Link> : <CardContent />;
 };
 
-// Komponen UI untuk Grafik Batang
 const BarChart = ({ data }: { data: { kelas: string; student_count: number }[] }) => {
   if (!data || data.length === 0) return <p className="text-sm text-center text-gray-500">Data distribusi siswa belum tersedia.</p>;
   const maxValue = Math.max(...data.map(item => item.student_count), 1);
@@ -66,54 +65,106 @@ const BarChart = ({ data }: { data: { kelas: string; student_count: number }[] }
 // Komponen Utama Profil yang mengambil datanya sendiri
 export default function Profile() {
   const router = useRouter();
+  
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // State untuk form edit
   const [fullName, setFullName] = useState('');
   const [kelas, setKelas] = useState('');
   const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  // useEffect untuk mengambil semua data yang diperlukan
+  // useEffect tunggal untuk mengambil semua data yang diperlukan
   useEffect(() => {
     const fetchAllData = async () => {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/login');
-        return;
-      }
+      setError(null);
+      
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push('/login');
+          return;
+        }
 
-      const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      if (profileError || !profileData) {
-        console.error("Gagal memuat profil:", profileError);
+        const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        if (profileError) throw profileError;
+        if (!profileData) throw new Error("Profil tidak ditemukan.");
+
+        setProfile(profileData as ProfileData);
+        setFullName(profileData.full_name || '');
+        setKelas(profileData.kelas || '');
+        setAvatarUrl(profileData.avatar_url || null);
+
+        if (profileData.role === 'guru') {
+          const { data, error } = await supabase.rpc('get_teacher_dashboard_stats', { p_teacher_id: user.id });
+          if (error) throw error;
+          setDashboardData(data);
+        } else {
+          const { data, error } = await supabase.rpc('get_student_dashboard_stats', { p_student_id: user.id, p_student_kelas: profileData.kelas });
+          if (error) throw error;
+          setDashboardData(data);
+        }
+      } catch (err: any) {
+        console.error("Error fetching dashboard data:", err);
+        setError("Gagal memuat data dasbor. Coba segarkan halaman.");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      setProfile(profileData as ProfileData);
-      setFullName(profileData.full_name || '');
-      setKelas(profileData.kelas || '');
-      setAvatarUrl(profileData.avatar_url || null);
-
-      if (profileData.role === 'guru') {
-        const { data } = await supabase.rpc('get_teacher_dashboard_stats', { p_teacher_id: user.id });
-        setDashboardData(data);
-      } else {
-        const { data } = await supabase.rpc('get_student_dashboard_stats', { p_student_id: user.id, p_student_kelas: profileData.kelas });
-        setDashboardData(data);
-      }
-      setLoading(false);
     };
+
     fetchAllData();
   }, [router]);
 
-  // Fungsi untuk update profil
-  const handleUpdate = async () => { /* ... (logika ini tidak berubah) ... */ };
+  const handleUpdate = async () => {
+    if (!profile) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    let updatedAvatarPublicUrl = profile.avatar_url;
+    if (newAvatarFile) {
+      const filePath = `public/${user.id}/${Date.now()}-${newAvatarFile.name}`;
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, newAvatarFile, { upsert: true });
+      if (uploadError) { alert(`Gagal upload avatar: ${uploadError.message}`); return; }
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      updatedAvatarPublicUrl = urlData.publicUrl;
+    }
+    const { data: updatedProfile, error: updateError } = await supabase.from('profiles').update({
+      full_name: fullName,
+      avatar_url: updatedAvatarPublicUrl,
+      kelas: profile.role === 'murid' ? kelas : null,
+    }).eq('id', user.id).select().single();
+    if (updateError) {
+      alert(`Gagal memperbarui profil: ${updateError.message}`);
+    } else {
+      alert('Profil berhasil diperbarui');
+      setProfile(updatedProfile as ProfileData);
+      setAvatarUrl(updatedProfile.avatar_url);
+    }
+  };
   
-  // Fungsi untuk logout
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) { alert('Password baru harus terdiri dari minimal 6 karakter.'); return; }
+    if (newPassword !== confirmPassword) { alert('Password baru dan konfirmasi password tidak cocok.'); return; }
+    setIsUpdatingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      alert(`Gagal mengubah password: ${error.message}`);
+    } else {
+      alert('Password berhasil diubah. Anda akan diarahkan ke halaman login untuk masuk kembali.');
+      setNewPassword('');
+      setConfirmPassword('');
+      await supabase.auth.signOut();
+      router.push('/login');
+    }
+    setIsUpdatingPassword(false);
+  };
+
   const handleLogout = async () => {
     if (confirm('Apakah Anda yakin ingin keluar?')) {
       await supabase.auth.signOut();
@@ -121,10 +172,18 @@ export default function Profile() {
     }
   }
 
-  if (loading) return <p className="p-8 text-center">Memuat dasbor Anda...</p>;
-  if (!profile) return <p className="p-8 text-center text-red-500">Gagal memuat profil. Silakan login kembali.</p>;
+  if (loading) {
+    return <p className="p-8 text-center text-xl">Memuat dasbor Anda...</p>;
+  }
 
-  // Komponen Bagian Edit Profil
+  if (error) {
+    return <p className="p-8 text-center text-red-500">{error}</p>;
+  }
+
+  if (!profile) {
+    return <p className="p-8 text-center text-red-500">Gagal memuat profil. Silakan login kembali.</p>;
+  }
+
   const EditProfileSection = () => (
     <div id="edit-profile" className="p-4 md:p-6 max-w-lg mx-auto mt-10">
       <div className="card p-6 space-y-6">
@@ -151,38 +210,55 @@ export default function Profile() {
             </select>
           </div>
         )}
-        <button onClick={handleUpdate} className="btn btn-primary w-full">Simpan Perubahan</button>
+        <button onClick={handleUpdate} className="btn btn-primary w-full">Simpan Perubahan Profil</button>
       </div>
     </div>
   );
 
-  // Tampilan untuk Guru
+  const ChangePasswordSection = () => (
+    <div id="change-password" className="p-4 md:p-6 max-w-lg mx-auto mt-6">
+       <div className="card p-6 space-y-6">
+        <div><h2 className="text-2xl font-bold text-center mb-1">Ubah Password</h2></div>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Password Baru</label>
+            <input type="password" placeholder="Minimal 6 karakter" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input w-full" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Konfirmasi Password Baru</label>
+            <input type="password" placeholder="Ketik ulang password baru Anda" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="input w-full" />
+          </div>
+        </div>
+        <button onClick={handleChangePassword} className="btn btn-primary w-full" disabled={isUpdatingPassword}>
+          {isUpdatingPassword ? 'Memproses...' : 'Ubah Password'}
+        </button>
+       </div>
+    </div>
+  );
+
   if (profile.role === 'guru') {
     const data: TeacherStats = dashboardData;
     return (
       <div className="p-4 md:p-8 space-y-8">
         <div className="flex justify-between items-start gap-4">
-          <div>
-            <h1 className="text-4xl font-bold">Selamat Datang, Guru {profile.full_name}!</h1>
-            <p className="text-gray-500">Berikut adalah ringkasan aktivitas di sekolah Anda.</p>
-          </div>
+          <div><h1 className="text-4xl font-bold">Selamat Datang, Guru {profile.full_name}!</h1></div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Link href="#edit-profile" className="btn btn-primary p-2 flex items-center gap-2 text-sm"><Edit size={16}/> <span className="hidden md:inline">Edit Profil</span></Link>
             <button onClick={handleLogout} className="btn bg-red-500 hover:bg-red-600 p-2"><LogOut size={20}/></button>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <StatCard title="Total Siswa" value={data?.student_distribution?.reduce((sum, item) => sum + item.student_count, 0) || 0} icon={<Users size={28}/>} link="/dashboard/admin/manage-students" />
-          <StatCard title="Kursus Dibuat" value={data?.total_courses || 0} icon={<BookOpen size={28}/>} link="/dashboard/manage-courses" />
-          <StatCard title="Total Pengerjaan" value={data?.total_enrollments || 0} icon={<CheckCircle size={28}/>} />
+            <StatCard title="Total Siswa" value={data?.student_distribution?.reduce((sum, item) => sum + item.student_count, 0) || 0} icon={<Users size={28}/>} link="/dashboard/admin/manage-students" />
+            <StatCard title="Kursus Dibuat" value={data?.total_courses || 0} icon={<BookOpen size={28}/>} link="/dashboard/manage-courses" />
+            <StatCard title="Total Pengerjaan" value={data?.total_enrollments || 0} icon={<CheckCircle size={28}/>} />
         </div>
         <div>{data?.student_distribution && <BarChart data={data.student_distribution} />}</div>
         <EditProfileSection />
+        <ChangePasswordSection />
       </div>
     );
   }
 
-  // Tampilan untuk Siswa
   const data: StudentStats = dashboardData;
   return (
     <div className="p-4 md:p-8 space-y-8">
@@ -210,6 +286,7 @@ export default function Profile() {
         <div className="card p-6"><h3 className="font-bold text-xl mb-4">Pencapaianmu</h3><div className="space-y-4"><div className="flex items-center gap-3"><span className="font-bold text-lg text-yellow-500">{profile.xp || 0}</span><span className="text-sm">Poin XP</span></div><div><h4 className="font-semibold mb-2">Lencana:</h4>{(profile.badges && profile.badges.length > 0) ? (<div className="flex flex-wrap gap-2">{profile.badges.map((badge, i) => <span key={i} className="text-xs font-semibold bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200 px-2 py-1 rounded-full flex items-center gap-1"><Award size={14}/> {badge}</span>)}</div>) : <p className="text-sm text-gray-500 italic">Belum ada lencana.</p>}</div></div></div>
       </div>
       <EditProfileSection />
+      <ChangePasswordSection />
     </div>
   );
 }

@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Trash2 } from 'lucide-react'
 
-// Tipe data untuk profil yang dilihat
 interface Profile {
   id: string; full_name: string; kelas: string; role: 'guru' | 'murid'; avatar_url: string;
 }
@@ -19,13 +18,10 @@ export default function ViewProfilePage() {
 
   useEffect(() => {
     if (typeof profileId !== 'string') return;
-    
     const fetchData = async () => {
-      // Ambil profil yang ingin dilihat
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', profileId).single();
       if (profileData) setProfile(profileData);
       
-      // Cek peran pengguna yang sedang melihat halaman ini
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: viewerProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
@@ -66,7 +62,6 @@ export default function ViewProfilePage() {
             <p className="text-gray-500">{profile.role === 'guru' ? 'Guru' : `Siswa ${profile.kelas}`}</p>
         </div>
         
-        {/* Tombol Aksi Admin */}
         {viewerRole === 'guru' && profile.role === 'murid' && (
             <div className="mt-8 pt-6 border-t border-dashed">
                 <h3 className="text-lg font-bold text-red-500 text-center mb-4">Zona Berbahaya (Admin)</h3>

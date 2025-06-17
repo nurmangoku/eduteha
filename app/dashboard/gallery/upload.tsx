@@ -1,45 +1,50 @@
-// FILE: app/dashboard/gallery/upload.tsx (Dengan Perbaikan Props)
-
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, ChangeEvent } from 'react'
 import { supabase } from '@/lib/supabase'
 
-// --- PERBAIKAN DI SINI: Definisikan tipe untuk props ---
 interface UploadProps {
-  onUploadSuccess: () => void;
+  onUploadSuccess?: () => void;
 }
-// ----------------------------------------------------
 
-// --- PERBAIKAN DI SINI: Terapkan tipe ke komponen ---
 export default function Upload({ onUploadSuccess }: UploadProps) {
   const [caption, setCaption] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  const MAX_FILE_SIZE_MB = 3;
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0] || null;
+    if (selectedFile) {
+      if (selectedFile.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        alert(`Ukuran file melebihi batas maksimal ${MAX_FILE_SIZE_MB} MB.`);
+        if(fileInputRef.current) fileInputRef.current.value = "";
+        setFile(null);
+        return;
+      }
+      setFile(selectedFile);
+    }
+  }
 
   const handleUpload = async () => {
-    if (!file || !caption.trim()) {
-      alert('Pilih file dan isi caption terlebih dahulu.');
+    // --- PERBAIKAN: Hapus validasi untuk caption ---
+    if (!file) {
+      alert('Pilih file foto terlebih dahulu.');
       return;
     }
-
+    
     setUploading(true);
+
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert('Anda harus login untuk mengunggah foto.');
-      setUploading(false);
-      return;
-    }
+    if (!user) { setUploading(false); return; }
 
     const { data: profile } = await supabase.from('profiles').select('kelas').eq('id', user.id).single();
-    if (!profile) {
-      alert('Gagal mengambil data profil Anda.');
-      setUploading(false);
-      return;
-    }
+    if (!profile) { setUploading(false); return; }
 
-    const filename = `${user.id}/${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage.from('gallery').upload(`public/${filename}`, file);
+    const filename = `public/${user.id}/${Date.now()}-${file.name}`;
+    
+    const { error: uploadError } = await supabase.storage.from('gallery').upload(filename, file);
 
     if (uploadError) {
       alert(`Gagal unggah foto: ${uploadError.message}`);
@@ -47,20 +52,17 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
       return;
     }
 
-    const { data: { publicUrl } } = supabase.storage.from('gallery').getPublicUrl(`public/${filename}`);
+    const { data: { publicUrl } } = supabase.storage.from('gallery').getPublicUrl(filename);
 
     const { error: insertError } = await supabase.from('gallery').insert({
-        user_id: user.id,
-        caption,
-        image_url: publicUrl,
-        kelas: profile.kelas
+        user_id: user.id, caption, image_url: publicUrl, kelas: profile.kelas
       });
 
     setUploading(false);
 
     if (insertError) {
-      alert(`Gagal simpan data galeri: ${insertError.message}`);
-      await supabase.storage.from('gallery').remove([`public/${filename}`]);
+      alert(`Gagal simpan data: ${insertError.message}`);
+      await supabase.storage.from('gallery').remove([filename]);
       return;
     }
 
@@ -68,24 +70,27 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
     setCaption('');
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    
-    // Panggil callback setelah sukses
-    onUploadSuccess();
+    onUploadSuccess?.();
   }
 
   return (
     <div className="card max-w-lg mx-auto mb-8">
-      <h2 className="text-xl font-bold mb-4">Unggah Foto Kegiatan</h2>
+      <h2 className="text-xl font-bold mb-4">Unggah Foto ke Galeri</h2>
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Pilih Foto</label>
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} className="input" disabled={uploading}/>
+          <label className="block text-sm font-medium mb-1">Pilih Foto (Wajib, Maks. {MAX_FILE_SIZE_MB} MB)</label>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="input" disabled={uploading}/>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Keterangan</label>
+          <label className="block text-sm font-medium mb-1">Keterangan (Opsional)</label>
           <textarea className="input w-full" placeholder="Tulis keterangan foto..." value={caption} onChange={(e) => setCaption(e.target.value)} rows={3} disabled={uploading}/>
         </div>
-        <button className="btn btn-primary w-full" onClick={handleUpload} disabled={uploading || !file || !caption.trim()}>
+        <button
+          className="btn btn-primary w-full"
+          onClick={handleUpload}
+          // --- PERBAIKAN: Tombol aktif selama ada file ---
+          disabled={uploading || !file}
+        >
           {uploading ? 'Mengunggah...' : 'Unggah Foto'}
         </button>
       </div>

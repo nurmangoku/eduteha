@@ -44,7 +44,8 @@ export default function ManageStudentsPage() {
                 <Link href={`/dashboard/profile/${student.id}`}>
                   <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                     <Image 
-                      src={student.avatar_url || `https://api.dicebear.com/8.x/initials/svg?seed=${student.full_name}`} 
+                      // --- PERBAIKAN DI SINI: Gunakan .trim() untuk menghapus spasi ---
+                      src={student.avatar_url || `https://api.dicebear.com/8.x/initials/svg?seed=${student.full_name.trim()}`} 
                       alt={student.full_name}
                       width={40}
                       height={40}

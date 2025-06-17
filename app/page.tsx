@@ -1,50 +1,25 @@
-'use client'
+import Link from 'next/link'
 
-import Image from "next/image"
-import Link from "next/link"
-
-export default function Home() {
+// Ini adalah komponen Server, sederhana dan cepat.
+// Tugasnya hanya menampilkan halaman utama.
+export default function HomePage() {
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center bg-gray-300 text-center px-6">
-      
-      {/* Background image */}
-      <div className="absolute inset-0 z-0">
-        <Image
-          src="/th.png" // Ganti dengan gambar background nanti
-          alt="Background"
-          fill
-          className="object-contain opacity-10"
-        />
-      </div>
-
-      {/* Content */}
-      <div className="z-10 max-w-xl space-y-6">
-        <div className="flex justify-center">
-          <Image
-            src="/th.png"
-            alt="Logo"
-            width={100}
-            height={100}
-            // className="dark:invert"
-          />
-        </div>
-
-        <h1 className="text-4xl font-bold text-black">EDUTEHA</h1>
-        <p className="text-lg text-gray-700">Aplikasi belajar SDN Tunas Harapan</p>
-
-        <Link
-          href="/login"
-          className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-full transition"
-        >
-          Login
-        </Link>
-
-        {/* <p className="text-gray-700">
-          Belum punya akun?{" "}
-          <Link href="/signup" className="text-blue-600 hover:underline">
-            Daftar di sini
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-900 text-center p-8">
+      <div className="max-w-2xl">
+        <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-sky-500 to-emerald-500 text-transparent bg-clip-text">
+          Selamat Datang di EdukasiApp
+        </h1>
+        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+          Platform pembelajaran interaktif yang dirancang untuk membuat belajar menjadi menyenangkan dan efektif.
+        </p>
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Link href="/login" className="btn btn-primary w-full sm:w-auto text-lg">
+            Masuk Sekarang
           </Link>
-        </p> */}
+          <p className="text-sm text-gray-500">
+            atau hubungi admin untuk pendaftaran.
+          </p>
+        </div>
       </div>
     </div>
   )
