@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   User, BookOpen, GalleryHorizontalEnd, LogOut,
-  Swords, List, Users as UsersIcon, ListPlus, Shield, Trophy, PlusCircle, X, ClipboardCheck
+  Swords, List, Users as UsersIcon, ListPlus, Shield, Trophy, PlusCircle, X, ClipboardCheck, Settings // Tambahkan ikon Settings
 } from 'lucide-react'
 
 // Tipe untuk setiap item navigasi
@@ -45,7 +45,7 @@ export default function Navbar() {
     }
   }
 
-  // Daftar lengkap item navigasi
+  // --- PERBAIKAN: Daftar navigasi diperbarui ---
   const navItems: NavItem[] = [
     // Menu Utama
     { href: '/dashboard', label: 'Profil', icon: <User size={22} />, roles: ['guru', 'murid'], section: 'main' },
@@ -61,10 +61,12 @@ export default function Navbar() {
     { href: '/dashboard/manage-courses', label: 'Kelola Kursus', icon: <BookOpen size={24} />, roles: ['guru'], section: 'management' },
     { href: '/dashboard/admin/manage-students', label: 'Kelola Siswa', icon: <UsersIcon size={24} />, roles: ['guru'], section: 'management' },
     { href: '/dashboard/admin/journal-monitoring', label: 'Pantau Jurnal', icon: <ClipboardCheck size={24} />, roles: ['guru'], section: 'management' },
+    { href: '/dashboard/admin/manage-classes', label: 'Kelola Kelas', icon: <UsersIcon size={24} />, roles: ['guru'], section: 'management' }, // Ditambahkan ke manajemen
 
     // Menu Khusus Guru (Admin Tools)
     { href: '/dashboard/admin/create-users', label: 'Buat Akun', icon: <PlusCircle size={24} />, roles: ['guru'], section: 'admin' },
     { href: '/dashboard/admin/battle-questions', label: 'Bank Soal', icon: <ListPlus size={24} />, roles: ['guru'], section: 'admin' },
+    { href: '/dashboard/admin/settings', label: 'Pengaturan App', icon: <Settings size={24} />, roles: ['guru'], section: 'admin' },
   ]
   
   const accessibleNavItems = navItems.filter(item => item.roles.includes(role!))
@@ -120,12 +122,11 @@ export default function Navbar() {
       </aside>
 
       {/* Navigasi Bawah untuk Mobile (di bawah md) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--card)] border-t border-[var(--border)] grid grid-cols-6 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--card)] border-t border-[var(--border)] grid grid-cols-5 z-50">
           {role === 'murid' && ( <>
               <MobileNavLink item={navItems.find(i => i.href === '/dashboard/courses')!} />
               <MobileNavLink item={navItems.find(i => i.href === '/dashboard/battle-arena')!} />
               <MobileNavLink item={navItems.find(i => i.href === '/dashboard/leaderboard')!} />
-              <MobileNavLink item={navItems.find(i => i.href === '/dashboard/journal')!} />
               <MobileNavLink item={navItems.find(i => i.href === '/dashboard/gallery')!} />
               <MobileNavLink item={navItems.find(i => i.href === '/dashboard')!} />
           </>)}
@@ -134,12 +135,8 @@ export default function Navbar() {
               <MobileNavLink item={navItems.find(i => i.href === '/dashboard')!} />
               <MobileNavLink item={navItems.find(i => i.href === '/dashboard/gallery')!} />
               <MobileNavLink item={navItems.find(i => i.href === '/dashboard/leaderboard')!} />
-              {/* Tombol Manajemen Baru */}
               <button onClick={() => setIsManagementMenuOpen(true)} className="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-sky-500"><BookOpen size={22}/><span className="text-[10px] leading-tight mt-1">Manajemen</span></button>
-              {/* Tombol Admin */}
               <button onClick={() => setIsAdminMenuOpen(true)} className="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-sky-500"><Shield size={22}/><span className="text-[10px] leading-tight mt-1">Admin</span></button>
-              {/* Slot kosong untuk menjaga layout 6 kolom */}
-              <div></div>
           </>)}
       </nav>
       
