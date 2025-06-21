@@ -1,9 +1,28 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import Image from 'next/image' // Impor komponen Image dari Next.js
 
 // Ini adalah komponen Server, sederhana dan cepat.
 // Tugasnya hanya menampilkan halaman utama.
 export default function HomePage() {
+   const router = useRouter()
+
+  useEffect(() => {
+    const checkLogin = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        router.replace('/dashboard')
+      }
+    }
+
+    checkLogin()
+  }, [router])
+
+  
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-900 text-center p-8">
       <div className="max-w-2xl">

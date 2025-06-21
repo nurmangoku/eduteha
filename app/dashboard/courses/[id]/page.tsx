@@ -1,28 +1,31 @@
-'use client'
-import { useEffect, useState, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase' // Pastikan path ini sesuai
-import Link from 'next/link'
-import RoleGuard from '@/components/RoleGuard' // Impor RoleGuard
-import { BookOpen } from 'lucide-react'; // Impor ikon
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
+import RoleGuard from '@/components/RoleGuard';
+import { BookOpen, Check, ChevronRight, Loader } from 'lucide-react';
+
+// --- DEFINISI TIPE DATA ---
 
 interface Step {
   id: string;
-  // title: string; // Kolom ini yang menyebabkan error, kita ganti
-  content: string; // Akan kita gunakan atau question sebagai pengganti title
-  question?: string; // Tambahkan question, karena ini mungkin lebih cocok sebagai "judul" ringkas
+  title: string;
   step_number: number;
 }
 
 interface CourseInfo { 
   title: string;
+  description: string;
 }
+
+// --- KOMPONEN UTAMA ---
 
 export default function CourseDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const courseIdParam = params.id; 
-  const courseId = typeof courseIdParam === 'string' ? courseIdParam : undefined;
+  const courseId = params.id as string;
 
   const [courseInfo, setCourseInfo] = useState<CourseInfo | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
@@ -34,31 +37,33 @@ export default function CourseDetailPage() {
     setLoading(true); 
     setError(null);
     try {
+      // Ambil info kursus
       const { data: courseData, error: courseError } = await supabase
         .from('courses')
-        .select('title')
+        .select('title, description')
         .eq('id', currentCourseId)
         .single();
 
       if (courseError) throw new Error(`Gagal memuat info kursus: ${courseError.message}`);
-      if (!courseData) throw new Error('Kursus tidak ditemukan.');
       setCourseInfo(courseData);
 
-      // Modifikasi SELECT: Ambil 'content' dan 'question', bukan 'title'
+      // Ambil semua tahapan untuk kursus ini
       const { data: stepData, error: stepsError } = await supabase
         .from('course_steps')
-        .select('id, content, question, step_number') 
+        .select('id, title, step_number') // Mengambil kolom 'title' yang baru
         .eq('course_id', currentCourseId)
         .order('step_number', { ascending: true });
 
       if (stepsError) throw new Error(`Gagal memuat tahapan kursus: ${stepsError.message}`);
       setSteps(stepData || []);
 
+      // Ambil progres siswa
       const { data: progressData, error: progressError } = await supabase
         .from('course_progress')
         .select('step_number')
         .eq('course_id', currentCourseId)
-        .eq('user_id', currentUserId);
+        .eq('user_id', currentUserId)
+        .eq('is_correct', true); // Hanya ambil yang sudah selesai dengan benar
       
       if (progressError) throw new Error(`Gagal memuat progres kursus: ${progressError.message}`);
       setCompletedSteps((progressData || []).map(p => p.step_number));
@@ -74,17 +79,13 @@ export default function CourseDetailPage() {
   useEffect(() => {
     const initialize = async () => {
       if (!courseId) {
-        if (courseIdParam !== undefined && typeof courseIdParam !== 'string') {
-            setError("ID Kursus tidak valid.");
-        }
-        if (typeof courseIdParam !== 'string' && courseIdParam !== undefined) setLoading(false);
+        setLoading(false);
+        setError("ID Kursus tidak valid.");
         return;
       }
 
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        setError("Gagal mendapatkan data pengguna. Silakan login kembali.");
-        setLoading(false);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         router.push('/login');
         return;
       }
@@ -93,64 +94,58 @@ export default function CourseDetailPage() {
     };
 
     initialize();
-  }, [courseId, courseIdParam, router, fetchData]);
+  }, [courseId, router, fetchData]);
 
 
-  if (loading) return <p className="p-6 text-center text-gray-600 dark:text-gray-400">🔄 Memuat detail kursus...</p>;
-  if (error) return <p className="p-6 text-center text-red-500 dark:text-red-400">⚠️ {error}</p>;
-  if (!courseId && !loading) return <p className="p-6 text-center text-gray-600 dark:text-gray-400">ID Kursus tidak ditemukan pada rute.</p>;
-  if (!courseInfo && !loading && !error) return <p className="p-6 text-center text-gray-600 dark:text-gray-400">Kursus tidak ditemukan.</p>;
-
-  const getStepDisplayTitle = (step: Step) => {
-    if (step.question && step.question.trim() !== '') {
-      return step.question;
-    }
-    if (step.content && step.content.trim() !== '') {
-      // Ambil 50 karakter pertama dari konten sebagai fallback jika terlalu panjang
-      return step.content.substring(0, 50) + (step.content.length > 50 ? '...' : '');
-    }
-    return 'Tahap tanpa judul'; // Fallback jika question dan content kosong
-  };
+  if (loading) return <p className="p-6 text-center">🔄 Memuat detail kursus...</p>;
+  if (error) return <p className="p-6 text-center text-red-500">⚠️ {error}</p>;
+  if (!courseInfo) return <p className="p-6 text-center">Kursus tidak ditemukan.</p>;
 
   return (
     <RoleGuard allowedRoles={['murid']}> 
-      <div className="p-4 md:p-6 space-y-4 max-w-2xl mx-auto">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white mb-1">
-          {courseInfo?.title || 'Detail Kursus'}
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-          Daftar tahapan untuk kursus ini. Selesaikan semua tahapan untuk menyelesaikan kursus.
-        </p>
+      <div className="p-4 md:p-8 max-w-2xl mx-auto">
+        <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-2">{courseInfo.title}</h1>
+            <p className="text-gray-500">{courseInfo.description}</p>
+        </div>
 
         {steps.length > 0 ? (
-          <ul className="space-y-3">
-            {steps.map(step => (
-              <li key={step.id} className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 flex justify-between items-center hover:shadow-lg transition-shadow duration-150">
-                <div>
-                  {/* Modifikasi Tampilan: Gunakan getStepDisplayTitle */}
-                  <p className="font-medium text-gray-800 dark:text-gray-100">{step.step_number}. {getStepDisplayTitle(step)}</p>
-                  <p className={`text-xs mt-1 ${completedSteps.includes(step.step_number) ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-red-600 dark:text-red-400'}`}>
-                    {completedSteps.includes(step.step_number) ? '✅ Selesai' : '❌ Belum dikerjakan'}
-                  </p>
-                </div>
+          <div className="space-y-3">
+            <h2 className="text-xl font-semibold mb-3">Daftar Tahapan</h2>
+            {steps.map(step => {
+              const isCompleted = completedSteps.includes(step.step_number);
+              return (
                 <Link
+                  key={step.id}
                   href={`/dashboard/courses/${courseId}/stages/${step.step_number}`}
-                  className="btn btn-sm text-xs px-3 py-1.5"
+                  className="card flex items-center justify-between p-4 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-all duration-200"
                 >
-                  Buka Tahap
+                  <div className="flex items-center">
+                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mr-4 ${isCompleted ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                      {isCompleted ? <Check size={18} /> : <span className="font-bold">{step.step_number}</span>}
+                    </div>
+                    <div>
+                      <p className="font-medium">{step.title || `Tahapan ${step.step_number}`}</p>
+                      <p className={`text-xs mt-1 font-semibold ${isCompleted ? 'text-green-600' : 'text-gray-500'}`}>
+                        {isCompleted ? 'Selesai' : 'Belum dikerjakan'}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight size={20} className="text-gray-400" />
                 </Link>
-              </li>
-            ))}
-          </ul>
+              );
+            })}
+          </div>
         ) : (
-          <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-              <BookOpen size={40} className="mx-auto text-gray-400 dark:text-gray-500 mb-3" />
-              <p className="text-gray-600 dark:text-gray-400">Belum ada tahapan yang ditambahkan untuk kursus ini.</p>
+          <div className="text-center py-10 card">
+              <BookOpen size={48} className="mx-auto text-gray-400 mb-4" />
+              <p className="text-lg">Belum ada tahapan untuk kursus ini.</p>
           </div>
         )}
+
         <div className="mt-8 text-center">
-            <Link href="/dashboard/courses" className="text-blue-600 hover:underline dark:text-blue-400">
-                &larr; Kembali ke Daftar Kursus
+            <Link href="/dashboard/courses" className="text-sky-600 hover:underline">
+                &larr; Kembali ke Daftar Semua Kursus
             </Link>
         </div>
       </div>

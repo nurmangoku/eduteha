@@ -58,7 +58,7 @@ export default function Navbar() {
     { href: '/dashboard/journal', label: 'Jurnal', icon: <List size={22} />, roles: ['murid'], section: 'main' },
     
     // Menu Khusus Guru (Manajemen)
-    { href: '/dashboard/manage-courses', label: 'Kelola Kursus', icon: <BookOpen size={24} />, roles: ['guru'], section: 'management' },
+    { href: '/dashboard/manage-courses/list', label: 'Kelola Kursus', icon: <BookOpen size={24} />, roles: ['guru'], section: 'management' },
     { href: '/dashboard/admin/manage-students', label: 'Kelola Siswa', icon: <UsersIcon size={24} />, roles: ['guru'], section: 'management' },
     { href: '/dashboard/admin/journal-monitoring', label: 'Pantau Jurnal', icon: <ClipboardCheck size={24} />, roles: ['guru'], section: 'management' },
     { href: '/dashboard/admin/manage-classes', label: 'Kelola Kelas', icon: <UsersIcon size={24} />, roles: ['guru'], section: 'management' }, // Ditambahkan ke manajemen

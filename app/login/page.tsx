@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -10,44 +10,66 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async () => {
-    setError(null)
-    setLoading(true)
-
-    try {
-      // Langkah 1: Panggil Edge Function untuk mendapatkan email
-      const { data: emailData, error: emailError } = await supabase.functions.invoke('get-email-from-username', {
-        body: { username }
-      });
-
-      if (emailError || emailData.error) {
-        throw new Error(emailData?.error || 'Nama akun tidak ditemukan.');
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        router.replace('/dashboard')
+      } else {
+        setLoading(false)
       }
-
-      const email = emailData.email;
-      if (!email) {
-        throw new Error("Gagal mengambil email untuk nama akun ini.");
-      }
-
-      // Langkah 2: Lakukan login langsung dari klien
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (signInError) {
-        throw new Error('Nama akun atau password salah.')
-      }
-
-      // Langkah 3: Paksa muat ulang halaman ke dasbor.
-      // Ini adalah cara paling andal untuk memastikan sesi baru dikenali.
-      window.location.href = '/dashboard';
-      
-    } catch (err: any) {
-      setError(err.message)
-      setLoading(false)
     }
+
+    checkUser()
+  }, [router])
+
+  const handleLogin = async () => {
+  setError(null)
+  setLoading(true)
+
+  // Bersihkan username: huruf kecil dan tanpa spasi
+  const cleanedUsername = username.toLowerCase().replace(/\s+/g, '')
+
+  // Validasi: tolak jika ada spasi di input asli
+  if (cleanedUsername !== username.toLowerCase()) {
+    setError('Nama akun tidak boleh mengandung spasi.')
+    setLoading(false)
+    return
   }
+
+  try {
+    // Panggil function Supabase untuk ambil email dari username
+    const { data: emailData, error: emailError } = await supabase.functions.invoke('get-email-from-username', {
+      body: { username: cleanedUsername }
+    })
+
+    if (emailError || emailData?.error) {
+      throw new Error(emailData?.error || 'Nama akun tidak ditemukan.')
+    }
+
+    const email = emailData.email
+    if (!email) {
+      throw new Error('Gagal mengambil email untuk nama akun ini.')
+    }
+
+    // Login dengan email + password
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (signInError) {
+      throw new Error('Nama akun atau password salah.')
+    }
+
+    window.location.href = '/dashboard'
+
+  } catch (err: any) {
+    setError(err.message)
+    setLoading(false)
+  }
+}
+
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-900">
